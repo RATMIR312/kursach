@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Players - Cricket Score API{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-users"></i> Players Database</h1>
+    <p>Manage and view cricket players information. Filter by role or team.</p>
+</div>
+
+<div class="controls">
+    <div class="filters">
+        <select id="roleFilter" onchange="filterPlayers()">
+            <option value="">All Roles</option>
+            <option value="batsman">Batsman</option>
+            <option value="bowler">Bowler</option>
+            <option value="all-rounder">All-Rounder</option>
+        </select>
+        
+        <select id="teamFilter" onchange="filterPlayers()">
+            <option value="">All Teams</option>
+            <option value="India">India</option>
+            <option value="Australia">Australia</option>
+            <option value="England">England</option>
+            <option value="Pakistan">Pakistan</option>
+        </select>
+        
+        <button onclick="fetchPlayers()" class="btn">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Team</th>
+                <th>Runs</th>
+                <th>Wickets</th>
+                <th>Balls Faced</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="playersTable">
+            {% for player in players %}
+            <tr>
+                <td>{{ player.id }}</td>
+                <td>{{ player.name }}</td>
+                <td><span class="badge badge-{{ player.role }}">{{ player.role }}</span></td>
+                <td>{{ player.team }}</td>
+                <td>{{ player.runs }}</td>
+                <td>{{ player.wickets }}</td>
+                <td>{{ player.balls_faced }}</td>
+                <td>
+                    <button class="btn-small" onclick="calculatePoints({{ player.id }})">
+                        <i class="fas fa-calculator"></i> Calculate
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="api-example">
+    <h3><i class="fas fa-code"></i> API Endpoints Examples</h3>
+    <div class="code-block">
+        <p><strong>GET /api/players</strong> - Get all players</p>
+        <p><strong>GET /api/players?role=batsman</strong> - Filter by role (like in lab work variants)</p>
+        <p><strong>GET /api/players?team=India</strong> - Filter by team</p>
+        <p><strong>GET /api/players/top/batsman</strong> - Top batsmen by runs</p>
+    </div>
+</div>
+
+<script>
+function filterPlayers() {
+    const role = document.getElementById('roleFilter').value;
+    const team = document.getElementById('teamFilter').value;
+    
+    let url = '/api/players';
+    const params = [];
+    
+    if (role) params.push(`role=${role}`);
+    if (team) params.push(`team=${team}`);
+    
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+    
+    fetchPlayers(url);
+}
+
+function fetchPlayers(apiUrl = '/api/players') {
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('playersTable');
+            tableBody.innerHTML = '';
+            
+            data.forEach(player => {
+                const row = `<tr>
+                    <td>${player.id}</td>
+                    <td>${player.name}</td>
+                    <td><span class="badge badge-${player.role}">${player.role}</span></td>
+                    <td>${player.team}</td>
+                    <td>${player.runs}</td>
+                    <td>${player.wickets}</td>
+                    <td>${player.balls_faced}</td>
+                    <td>
+                        <button class="btn-small" onclick="calculatePoints(${player.id})">
+                            <i class="fas fa-calculator"></i> Calculate
+                        </button>
+                    </td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+        });
+}
+
+function calculatePoints(playerId) {
+    window.location.href = `/calculate?player=${playerId}`;
+}
+</script>
+{% endblock %}
