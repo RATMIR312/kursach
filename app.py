@@ -80,7 +80,7 @@ def get_matches():
             'message': str(e)
         }), 500
 
-@app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
+@app.route('/api/v1/matches/<int:match_id>')
 def get_match(match_id): 
     match = Match.query.get_or_404(match_id)
     return jsonify(match.to_dict())
