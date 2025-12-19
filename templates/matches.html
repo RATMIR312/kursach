@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Matches - Cricket Score API{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-baseball-ball"></i> Cricket Matches</h1>
+    <p>View and manage cricket matches. Data can be scraped from external sources or entered manually.</p>
+</div>
+
+<div class="controls">
+    <button onclick="fetchMatches()" class="btn">
+        <i class="fas fa-sync-alt"></i> Refresh Matches
+    </button>
+    
+    <button onclick="scrapeMatches()" class="btn btn-success">
+        <i class="fas fa-globe"></i> Scrape Live Matches
+    </button>
+    
+    <button onclick="showAddMatchForm()" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Add New Match
+    </button>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Teams</th>
+                <th>Date</th>
+                <th>Venue</th>
+                <th>Format</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="matchesTable">
+            {% for match in matches %}
+            <tr>
+                <td>{{ match.id }}</td>
+                <td><strong>{{ match.team1 }} vs {{ match.team2 }}</strong></td>
+                <td>{{ match.match_date.strftime('%Y-%m-%d') if match.match_date else 'N/A' }}</td>
+                <td>{{ match.venue }}</td>
+                <td><span class="badge">{{ match.format }}</span></td>
+                <td>
+                    <span class="status status-{{ match.status|lower }}">
+                        {{ match.status }}
+                    </span>
+                </td>
+                <td>{{ match.score or 'Not started' }}</td>
+                <td>
+                    <button class="btn-small" onclick="viewMatchDetails({{ match.id }})">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn-small btn-danger" onclick="deleteMatch({{ match.id }})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Форма для добавления нового матча (изначально скрыта) -->
+<div id="addMatchForm" style="display: none;">
+    <div class="form-container">
+        <h3><i class="fas fa-plus-circle"></i> Add New Match</h3>
+        
+        <div class="form-group">
+            <label for="newTeam1">Team 1</label>
+            <input type="text" id="newTeam1" class="form-control" placeholder="e.g., India">
+        </div>
+        
+        <div class="form-group">
+            <label for="newTeam2">Team 2</label>
+            <input type="text" id="newTeam2" class="form-control" placeholder="e.g., Australia">
+        </div>
+        
+        <div class="form-group">
+            <label for="newVenue">Venue</label>
+            <input type="text" id="newVenue" class="form-control" placeholder="e.g., Sydney Cricket Ground">
+        </div>
+        
+        <div class="form-group">
+            <label for="newFormat">Match Format</label>
+            <select id="newFormat" class="form-control">
+                <option value="T20 International">T20 International</option>
+                <option value="ODI">One Day International (ODI)</option>
+                <option value="Test Match">Test Match</option>
+                <option value="IPL T20">IPL T20</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="newStatus">Status</label>
+            <select id="newStatus" class="form-control">
+                <option value="Scheduled">Scheduled</option>
+                <option value="Live">Live</option>
+                <option value="Finished">Finished</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="newScore">Score (optional)</label>
+            <input type="text" id="newScore" class="form-control" placeholder="e.g., India 175/4 (20 overs)">
+        </div>
+        
+        <div class="form-buttons">
+            <button onclick="saveNewMatch()" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Match
+            </button>
+            <button onclick="hideAddMatchForm()" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Загрузка матчей через API
+async function fetchMatches() {
+    try {
+        const matches = await fetchData('/api/matches');
+        const tableBody = document.getElementById('matchesTable');
+        
+        tableBody.innerHTML = '';
+        
+        matches.forEach(match => {
+            const date = match.match_date ? new Date(match.match_date).toLocaleDateString() : 'N/A';
+            
+            const row = `
+                <tr>
+                    <td>${match.id}</td>
+                    <td><strong>${match.team1} vs ${match.team2}</strong></td>
+                    <td>${date}</td>
+                    <td>${match.venue || ''}</td>
+                    <td><span class="badge">${match.format}</span></td>
+                    <td>
+                        <span class="status status-${match.status ? match.status.toLowerCase() : ''}">
+                            ${match.status}
+                        </span>
+                    </td>
+                    <td>${match.score || 'Not started'}</td>
+                    <td>
+                        <button class="btn-small" onclick="viewMatchDetails(${match.id})">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                        <button class="btn-small btn-danger" onclick="deleteMatch(${match.id})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+            
+            tableBody.innerHTML += row;
+        });
+        
+        showAlert('Matches updated successfully', 'success');
+    } catch (error) {
+        console.error('Failed to fetch matches:', error);
+    }
+}
+
+// Функция для запуска веб-скрапинга
+async function scrapeMatches() {
+    try {
+        const result = await fetchData('/api/scrape/matches');
+        showAlert(`Successfully scraped ${result.matches_added} matches`, 'success');
+        
+        // Обновляем таблицу матчей
+        fetchMatches();
+    } catch (error) {
+        console.error('Failed to scrape matches:', error);
+    }
+}
+
+// Показать форму добавления матча
+function showAddMatchForm() {
+    document.getElementById('addMatchForm').style.display = 'block';
+}
+
+// Скрыть форму добавления матча
+function hideAddMatchForm() {
+    document.getElementById('addMatchForm').style.display = 'none';
+}
+
+// Сохранить новый матч
+async function saveNewMatch() {
+    const matchData = {
+        team1: document.getElementById('newTeam1').value,
+        team2: document.getElementById('newTeam2').value,
+        venue: document.getElementById('newVenue').value,
+        format: document.getElementById('newFormat').value,
+        status: document.getElementById('newStatus').value,
+        score: document.getElementById('newScore').value || null
+    };
+    
+    try {
+        await fetchData('/api/match', 'POST', matchData);
+        showAlert('Match added successfully', 'success');
+        
+        // Очищаем форму
+        document.getElementById('newTeam1').value = '';
+        document.getElementById('newTeam2').value = '';
+        document.getElementById('newVenue').value = '';
+        document.getElementById('newScore').value = '';
+        
+        // Скрываем форму
+        hideAddMatchForm();
+        
+        // Обновляем таблицу
+        fetchMatches();
+    } catch (error) {
+        console.error('Failed to add match:', error);
+    }
+}
+
+// Удалить матч
+async function deleteMatch(matchId) {
+    if (!confirm('Are you sure you want to delete this match?')) {
+        return;
+    }
+    
+    try {
+        await fetchData(`/api/match/${matchId}`, 'DELETE');
+        showAlert('Match deleted successfully', 'success');
+        fetchMatches();
+    } catch (error) {
+        console.error('Failed to delete match:', error);
+    }
+}
+
+// Просмотр деталей матча
+function viewMatchDetails(matchId) {
+    window.location.href = `/match/${matchId}`;
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    // Можно добавить дополнительную инициализацию
+});
+</script>
+
+<style>
+.status {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-live {
+    background-color: #49cc90;
+    color: white;
+}
+
+.status-finished {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-scheduled {
+    background-color: #fca130;
+    color: white;
+}
+
+.btn-success {
+    background-color: #49cc90;
+}
+
+.btn-success:hover {
+    background-color: #3cb179;
+}
+
+.btn-danger {
+    background-color: #f93e3e;
+}
+
+.btn-danger:hover {
+    background-color: #d63030;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+}
+
+.form-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+</style>
+{% endblock %}
