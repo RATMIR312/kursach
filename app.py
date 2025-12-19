@@ -77,28 +77,41 @@ def get_matches():
 @app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
 def get_match(match_id):
     """Получение информации о конкретном матче"""
-    match = Match.query.get_or_404(match_id)
+    try:
+        match = Match.query.get(match_id)
+        if not match:
+            return jsonify({
+                'error': 'Match not found',
+                'match_id': match_id
+            }), 404
     
     # Получаем информацию об иннингах
-    innings = Innings.query.filter_by(match_id=match_id).all()
-    innings_data = []
-    
-    for inning in innings:
-        performances = PlayerPerformance.query.filter_by(innings_id=inning.id).all()
-        innings_data.append({
-            'innings_number': inning.innings_number,
-            'batting_team': inning.batting_team.name if inning.batting_team else None,
-            'bowling_team': inning.bowling_team.name if inning.bowling_team else None,
-            'total_runs': inning.total_runs,
-            'wickets': inning.wickets,
-            'overs': inning.overs,
-            'performances': [p.to_dict() for p in performances]
+        innings = Innings.query.filter_by(match_id=match_id).all()
+        innings_data = []
+        
+        for inning in innings:
+            performances = PlayerPerformance.query.filter_by(innings_id=inning.id).all()
+            innings_data.append({
+                'innings_number': inning.innings_number or 0,
+                'batting_team': inning.batting_team.name if inning.batting_team else 'Unknown',
+                'bowling_team': inning.bowling_team.name if inning.bowling_team else 'Unknown',
+                'total_runs': inning.total_runs or 0,
+                'wickets': inning.wickets or 0,
+                'overs': inning.overs or 0.0,
+                'performances': [p.to_dict() for p in performances] if performances else []
+            })
+        
+        return jsonify({
+            'match': match.to_dict() if match else {},
+            'innings': innings_data,
+            'status': 'success'
         })
-    
-    return jsonify({
-        'match': match.to_dict(),
-        'innings': innings_data
-    })
+        
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/matches/live', methods=['GET'])
 def get_live_matches():
