@@ -314,12 +314,6 @@ def players_page():
                          role=role,
                          selected_team_id=team_id)
 
-@app.route('/teams')
-def teams_page():
-    """Страница со списком команд"""
-    teams = Team.query.all()
-    return render_template('teams.html', teams=teams)
-
 @app.route('/admin')
 def admin_page():
     """Админская панель"""
