@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Points Calculator - Cricket Score API{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-calculator"></i> Fantasy Points Calculator</h1>
+    <p>Calculate fantasy cricket points for players based on their performance.</p>
+</div>
+
+<div class="calculator-container">
+    <div class="calculator-form">
+        <h3>Select Player and Match</h3>
+        
+        <div class="form-group">
+            <label for="playerSelect">Player</label>
+            <select id="playerSelect" class="form-control">
+                <option value="">Loading players...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="matchSelect">Match</label>
+            <select id="matchSelect" class="form-control">
+                <option value="">Loading matches...</option>
+            </select>
+        </div>
+        
+        <!-- Скрытое поле для хранения роли игрока -->
+        <input type="hidden" id="playerRole" value="">
+        
+        <!-- Дополнительные поля для отбивающего -->
+        <div id="batsmanFields" style="display: none;">
+            <h4>Batting Details</h4>
+            
+            <div class="form-group">
+                <label for="fours">Number of Fours</label>
+                <input type="number" id="fours" class="form-control" min="0" value="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="sixes">Number of Sixes</label>
+                <input type="number" id="sixes" class="form-control" min="0" value="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="dismissalType">Dismissal Type</label>
+                <select id="dismissalType" class="form-control">
+                    <option value="not_out">Not Out</option>
+                    <option value="caught">Caught</option>
+                    <option value="bowled">Bowled</option>
+                    <option value="lbw">LBW</option>
+                    <option value="run_out">Run Out</option>
+                    <option value="stumped">Stumped</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Дополнительные поля для боулера -->
+        <div id="bowlerFields" style="display: none;">
+            <h4>Bowling Details</h4>
+            
+            <div class="form-group">
+                <label for="oversBowled">Overs Bowled</label>
+                <input type="number" id="oversBowled" class="form-control" min="0" step="0.1" value="4.0">
+                <small>e.g., 4.0 for 4 overs, 3.5 for 3.5 overs</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="maidens">Maiden Overs</label>
+                <input type="number" id="maidens" class="form-control" min="0" value="0">
+            </div>
+        </div>
+        
+        <button onclick="calculatePlayerPoints()" class="btn btn-primary btn-large">
+            <i class="fas fa-calculator"></i> Calculate Points
+        </button>
+        
+        <div id="calculationResult" style="display: none; margin-top: 20px;">
+            <h3>Calculation Result</h3>
+            <div class="result-card">
+                <h4 id="resultPlayerName"></h4>
+                <div class="points-display">
+                    <span class="points-label">Total Points:</span>
+                    <span class="points-value" id="resultPoints"></span>
+                </div>
+                <p id="resultDetails"></p>
+                <small>Calculation saved to database</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="calculator-info">
+        <h3><i class="fas fa-info-circle"></i> How Points are Calculated</h3>
+        
+        <div class="points-system">
+            <h4>Batting Points</h4>
+            <ul>
+                <li><strong>1 point</strong> per run</li>
+                <li><strong>+0.5 points</strong> per four</li>
+                <li><strong>+1 point</strong> per six</li>
+                <li><strong>+10 points</strong> for a half-century (50+ runs)</li>
+                <li><strong>+25 points</strong> for a century (100+ runs)</li>
+                <li><strong>+10 points</strong> for not out</li>
+                <li>Strike rate bonuses/penalties based on performance</li>
+            </ul>
+            
+            <h4>Bowling Points</h4>
+            <ul>
+                <li><strong>20 points</strong> per wicket</li>
+                <li><strong>+10 points</strong> for 3 wickets in a match</li>
+                <li><strong>+25 points</strong> for 5 wickets in a match</li>
+                <li><strong>10 points</strong> per maiden over</li>
+                <li>Economy rate bonuses/penalties based on performance</li>
+            </ul>
+        </div>
+        
+        <div class="api-example">
+            <h4>API Usage</h4>
+            <p>You can also calculate points via API:</p>
+            <div class="code-block">
+                <code>
+                    POST /api/calculate<br>
+                    {<br>
+                    &nbsp;&nbsp;"player_id": 1,<br>
+                    &nbsp;&nbsp;"match_id": 1,<br>
+                    &nbsp;&nbsp;"fours": 5,<br>
+                    &nbsp;&nbsp;"sixes": 2<br>
+                    }
+                </code>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="history-section">
+    <h3><i class="fas fa-history"></i> Recent Calculations</h3>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Player</th>
+                    <th>Match</th>
+                    <th>Points</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="pointsHistory">
+                <!-- История будет загружена через JavaScript -->
+                <tr>
+                    <td colspan="5" style="text-align: center;">Loading history...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Загрузка данных при открытии страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadPlayersForSelect('playerSelect');
+    loadMatchesForSelect('matchSelect');
+    updatePointsHistory();
+});
+
+// Функция для отображения результата расчета
+function showCalculationResult(result) {
+    document.getElementById('resultPlayerName').textContent = result.player;
+    document.getElementById('resultPoints').textContent = result.points.toFixed(2);
+    document.getElementById('resultDetails').textContent = 
+        `Player ${result.player} scored ${result.points.toFixed(2)} points in the selected match.`;
+    
+    document.getElementById('calculationResult').style.display = 'block';
+    
+    // Прокручиваем к результату
+    document.getElementById('calculationResult').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+
+<style>
+.calculator-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+    .calculator-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.calculator-form, .calculator-info {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.btn-large {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+}
+
+.result-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #49cc90;
+}
+
+.points-display {
+    display: flex;
+    align-items: center;
+    margin: 15px 0;
+}
+
+.points-label {
+    font-size: 1.1rem;
+    margin-right: 10px;
+}
+
+.points-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2a5298;
+}
+
+.points-system ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.points-system li {
+    padding: 5px 0;
+    border-bottom: 1px dashed #eee;
+}
+
+.history-section {
+    margin-top: 40px;
+}
+</style>
+{% endblock %}
