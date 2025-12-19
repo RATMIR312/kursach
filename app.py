@@ -326,14 +326,37 @@ def api_docs():
         {'method': 'GET', 'path': '/api/v1/health', 'description': 'Проверка здоровья API'},
         {'method': 'GET', 'path': '/api/v1/matches', 'description': 'Список матчей'},
         {'method': 'GET', 'path': '/api/v1/matches/live', 'description': 'Live матчи'},
+        {'method': 'GET', 'path': '/api/v1/matches/<int:match_id>', 'description': 'Детали матча'},
         {'method': 'GET', 'path': '/api/v1/teams', 'description': 'Список команд'},
+        {'method': 'GET', 'path': '/api/v1/teams/<int:team_id>', 'description': 'Статистика команды'},
         {'method': 'GET', 'path': '/api/v1/players', 'description': 'Список игроков'},
+        {'method': 'GET', 'path': '/api/v1/players/<int:player_id>', 'description': 'Статистика игрока'},
         {'method': 'GET', 'path': '/api/v1/players/top', 'description': 'Лучшие игроки'},
         {'method': 'GET', 'path': '/api/v1/stats/summary', 'description': 'Сводная статистика'},
         {'method': 'POST', 'path': '/api/v1/admin/scrape', 'description': 'Запуск скрапинга (требуется аутентификация)'}
     ]
-    
+
     return render_template('api_docs.html', endpoints=api_endpoints)
+
+@app.route('/api/v1/matches/<int:match_id>')
+def get_match(match_id):
+    """Получение информации о конкретном матче"""
+    match = Match.query.get_or_404(match_id)
+    return jsonify(match.to_dict())
+
+@app.route('/api/v1/teams/<int:team_id>')
+def get_team(team_id):
+    """Получение информации о команде"""
+    from database import DatabaseManager
+    stats = DatabaseManager.get_team_stats(team_id)
+    return jsonify(stats)
+
+@app.route('/api/v1/players/<int:player_id>')
+def get_player(player_id):
+    """Получение информации об игроке"""
+    from database import DatabaseManager
+    stats = DatabaseManager.get_player_stats(player_id)
+    return jsonify(stats)
 
 # ========== ОБРАБОТЧИКИ ОШИБОК ==========
 
