@@ -1315,6 +1315,198 @@ footer code {
     border-bottom: none;
 }
 
+/* Стили для страницы команд */
+.teams-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+@media (max-width: 768px) {
+    .teams-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.team-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    border: 1px solid var(--border-color);
+}
+
+.team-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    border-color: var(--secondary-color);
+}
+
+.team-header {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+}
+
+.team-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    font-size: 1.5rem;
+}
+
+.team-info h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.team-shortname {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.team-body {
+    padding: 1.5rem;
+}
+
+.team-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.detail i {
+    width: 20px;
+    text-align: center;
+    color: var(--secondary-color);
+}
+
+.team-players {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.team-players h4 {
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    font-size: 1rem;
+}
+
+.players-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.player-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--light-bg);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.player-chip.more {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: var(--secondary-color);
+    font-weight: 500;
+}
+
+.player-role {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    color: var(--text-secondary);
+}
+
+.team-footer {
+    padding: 1rem 1.5rem;
+    background-color: var(--light-bg);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.75rem;
+}
+
+.team-footer .btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+/* Статистика команд */
+.teams-stats {
+    margin-top: 2rem;
+}
+
+.stats-card {
+    background-color: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+}
+
+.stats-card h3 {
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+    background-color: var(--light-bg);
+    border-radius: var(--border-radius);
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
 /* Утилиты */
 .text-center { text-align: center; }
 .text-right { text-align: right; }
