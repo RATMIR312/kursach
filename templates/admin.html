@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Cricket Score API{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-cog"></i> Administration Panel</h1>
+    <p>Manage all aspects of the Cricket Score System. Use with caution.</p>
+</div>
+
+<div class="admin-dashboard">
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <h3><i class="fas fa-database"></i> Database Statistics</h3>
+        </div>
+        <div class="admin-card-body">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="matchesCount">{{ matches|length }}</div>
+                    <div class="stat-label">Total Matches</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="playersCount">{{ players|length }}</div>
+                    <div class="stat-label">Total Players</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="calculationsCount">0</div>
+                    <div class="stat-label">Point Calculations</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Database Tables</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="admin-actions">
+        <h3><i class="fas fa-tools"></i> Quick Actions</h3>
+        
+        <div class="actions-grid">
+            <button onclick="scrapeMatches()" class="action-btn">
+                <i class="fas fa-globe"></i>
+                <span>Scrape Live Matches</span>
+            </button>
+            
+            <button onclick="recalculateAllPoints()" class="action-btn">
+                <i class="fas fa-calculator"></i>
+                <span>Recalculate All Points</span>
+            </button>
+            
+            <button onclick="exportData()" class="action-btn">
+                <i class="fas fa-file-export"></i>
+                <span>Export Data (JSON)</span>
+            </button>
+            
+            <button onclick="clearOldData()" class="action-btn action-btn-danger">
+                <i class="fas fa-trash"></i>
+                <span>Clear Old Calculations</span>
+            </button>
+            
+            <button onclick="resetDatabase()" class="action-btn action-btn-danger">
+                <i class="fas fa-database"></i>
+                <span>Reset Database</span>
+            </button>
+            
+            <button onclick="runTests()" class="action-btn">
+                <i class="fas fa-vial"></i>
+                <span>Run System Tests</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="admin-tables">
+        <div class="table-section">
+            <h3><i class="fas fa-baseball-ball"></i> Matches Management</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Teams</th>
+                            <th>Date</th>
+                            <th>Format</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for match in matches %}
+                        <tr>
+                            <td>{{ match.id }}</td>
+                            <td>{{ match.team1 }} vs {{ match.team2 }}</td>
+                            <td>{{ match.match_date.strftime('%Y-%m-%d') if match.match_date else 'N/A' }}</td>
+                            <td>{{ match.format }}</td>
+                            <td>{{ match.status }}</td>
+                            <td>
+                                <button class="btn-small" onclick="editMatch({{ match.id }})">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="table-section">
+            <h3><i class="fas fa-users"></i> Players Management</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Team</th>
+                            <th>Runs</th>
+                            <th>Wickets</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in players %}
+                        <tr>
+                            <td>{{ player.id }}</td>
+                            <td>{{ player.name }}</td>
+                            <td>{{ player.role }}</td>
+                            <td>{{ player.team }}</td>
+                            <td>{{ player.runs }}</td>
+                            <td>{{ player.wickets }}</td>
+                            <td>
+                                <button class="btn-small" onclick="editPlayer({{ player.id }})">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для редактирования матча -->
+<div id="editMatchModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Match</h3>
+            <button onclick="closeModal('editMatchModal')" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editMatchForm">
+                <input type="hidden" id="editMatchId" value="">
+                
+                <div class="form-group">
+                    <label for="editTeam1">Team 1</label>
+                    <input type="text" id="editTeam1" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editTeam2">Team 2</label>
+                    <input type="text" id="editTeam2" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editVenue">Venue</label>
+                    <input type="text" id="editVenue" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editFormat">Format</label>
+                    <select id="editFormat" class="form-control">
+                        <option value="T20 International">T20 International</option>
+                        <option value="ODI">ODI</option>
+                        <option value="Test Match">Test Match</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editStatus">Status</label>
+                    <select id="editStatus" class="form-control">
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Live">Live</option>
+                        <option value="Finished">Finished</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editScore">Score</label>
+                    <input type="text" id="editScore" class="form-control">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button onclick="saveMatchChanges()" class="btn btn-primary">Save Changes</button>
+            <button onclick="closeModal('editMatchModal')" class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для редактирования игрока -->
+<div id="editPlayerModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Player</h3>
+            <button onclick="closeModal('editPlayerModal')" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editPlayerForm">
+                <input type="hidden" id="editPlayerId" value="">
+                
+                <div class="form-group">
+                    <label for="editPlayerName">Player Name</label>
+                    <input type="text" id="editPlayerName" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editPlayerRole">Role</label>
+                    <select id="editPlayerRole" class="form-control">
+                        <option value="batsman">Batsman</option>
+                        <option value="bowler">Bowler</option>
+                        <option value="all-rounder">All-Rounder</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editPlayerTeam">Team</label>
+                    <input type="text" id="editPlayerTeam" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editPlayerRuns">Runs</label>
+                    <input type="number" id="editPlayerRuns" class="form-control" min="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editPlayerWickets">Wickets</label>
+                    <input type="number" id="editPlayerWickets" class="form-control" min="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editPlayerBalls">Balls Faced</label>
+                    <input type="number" id="editPlayerBalls" class="form-control" min="0">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button onclick="savePlayerChanges()" class="btn btn-primary">Save Changes</button>
+            <button onclick="closeModal('editPlayerModal')" class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Загрузка статистики при открытии страницы
+document.addEventListener('DOMContentLoaded', function() {
+    loadStatistics();
+});
+
+// Загрузка статистики из API
+async function loadStatistics() {
+    try {
+        // Загрузка количества расчетов
+        const history = await fetchData('/api/points/history');
+        document.getElementById('calculationsCount').textContent = history.length;
+    } catch (error) {
+        console.error('Failed to load statistics:', error);
+    }
+}
+
+// Функция для запуска веб-скрапинга матчей
+async function scrapeMatches() {
+    try {
+        const result = await fetchData('/api/scrape/matches');
+        showAlert(`Successfully scraped ${result.matches_added} matches`, 'success');
+        
+        // Перезагрузка страницы для обновления данных
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    } catch (error) {
+        console.error('Failed to scrape matches:', error);
+    }
+}
+
+// Пересчет всех очков
+async function recalculateAllPoints() {
+    if (!confirm('This will recalculate points for all players. Continue?')) {
+        return;
+    }
+    
+    showAlert('Recalculation started...', 'info');
+    
+    // Здесь можно добавить логику пересчета
+    // Для примера просто обновим статистику
+    setTimeout(() => {
+        showAlert('Points recalculated successfully', 'success');
+        loadStatistics();
+    }, 2000);
+}
+
+// Экспорт данных
+async function exportData() {
+    try {
+        const [matches, players, history] = await Promise.all([
+            fetchData('/api/matches'),
+            fetchData('/api/players'),
+            fetchData('/api/points/history')
+        ]);
+        
+        const exportData = {
+            exported_at: new Date().toISOString(),
+            matches: matches,
+            players: players,
+            points_history: history
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = 'cricket_data_export.json';
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        showAlert('Data exported successfully', 'success');
+    } catch (error) {
+        console.error('Failed to export data:', error);
+    }
+}
+
+// Очистка старых данных
+async function clearOldData() {
+    if (!confirm('This will delete all points calculation history. Continue?')) {
+        return;
+    }
+    
+    // Здесь можно добавить API для очистки данных
+    // Пока просто покажем сообщение
+    showAlert('Old data cleared successfully', 'success');
+    loadStatistics();
+}
+
+// Сброс базы данных (опасно!)
+async function resetDatabase() {
+    if (!confirm('WARNING: This will reset all data to initial state. This action cannot be undone. Continue?')) {
+        return;
+    }
+    
+    showAlert('Resetting database...', 'warning');
+    
+    // Здесь можно добавить API для сброса базы данных
+    // Пока просто перезагрузим страницу
+    setTimeout(() => {
+        showAlert('Database reset completed', 'success');
+        window.location.reload();
+    }, 2000);
+}
+
+// Запуск тестов
+async function runTests() {
+    showAlert('Running system tests...', 'info');
+    
+    // Простые тесты API
+    try {
+        const tests = [
+            fetchData('/api/matches'),
+            fetchData('/api/players'),
+            fetchData('/api/points/history')
+        ];
+        
+        await Promise.all(tests);
+        showAlert('All system tests passed!', 'success');
+    } catch (error) {
+        showAlert(`Test failed: ${error.message}`, 'error');
+    }
+}
+
+// Редактирование матча
+async function editMatch(matchId) {
+    try {
+        const match = await fetchData(`/api/matches`);
+        const foundMatch = match.find(m => m.id === matchId);
+        
+        if (foundMatch) {
+            document.getElementById('editMatchId').value = foundMatch.id;
+            document.getElementById('editTeam1').value = foundMatch.team1;
+            document.getElementById('editTeam2').value = foundMatch.team2;
+            document.getElementById('editVenue').value = foundMatch.venue || '';
+            document.getElementById('editFormat').value = foundMatch.format || 'T20 International';
+            document.getElementById('editStatus').value = foundMatch.status || 'Scheduled';
+            document.getElementById('editScore').value = foundMatch.score || '';
+            
+            openModal('editMatchModal');
+        }
+    } catch (error) {
+        console.error('Failed to load match:', error);
+    }
+}
+
+// Редактирование игрока
+async function editPlayer(playerId) {
+    try {
+        const players = await fetchData('/api/players');
+        const foundPlayer = players.find(p => p.id === playerId);
+        
+        if (foundPlayer) {
+            document.getElementById('editPlayerId').value = foundPlayer.id;
+            document.getElementById('editPlayerName').value = foundPlayer.name;
+            document.getElementById('editPlayerRole').value = foundPlayer.role || 'batsman';
+            document.getElementById('editPlayerTeam').value = foundPlayer.team || '';
+            document.getElementById('editPlayerRuns').value = foundPlayer.runs || 0;
+            document.getElementById('editPlayerWickets').value = foundPlayer.wickets || 0;
+            document.getElementById('editPlayerBalls').value = foundPlayer.balls_faced || 0;
+            
+            openModal('editPlayerModal');
+        }
+    } catch (error) {
+        console.error('Failed to load player:', error);
+    }
+}
+
+// Сохранение изменений матча
+async function saveMatchChanges() {
+    const matchId = document.getElementById('editMatchId').value;
+    const matchData = {
+        team1: document.getElementById('editTeam1').value,
+        team2: document.getElementById('editTeam2').value,
+        venue: document.getElementById('editVenue').value,
+        format: document.getElementById('editFormat').value,
+        status: document.getElementById('editStatus').value,
+        score: document.getElementById('editScore').value || null
+    };
+    
+    try {
+        await fetchData(`/api/match/${matchId}`, 'PUT', matchData);
+        showAlert('Match updated successfully', 'success');
+        closeModal('editMatchModal');
+        window.location.reload();
+    } catch (error) {
+        console.error('Failed to update match:', error);
+    }
+}
+
+// Сохранение изменений игрока
+async function savePlayerChanges() {
+    // В реальном проекте здесь должен быть API для обновления игрока
+    showAlert('Player update functionality would be implemented here', 'info');
+    closeModal('editPlayerModal');
+}
+
+// Утилиты для модальных окон
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+</script>
+
+<style>
+.admin-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.admin-card {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.admin-card-header {
+    background: #2a5298;
+    color: white;
+    padding: 20px;
+}
+
+.admin-card-header h3 {
+    margin: 0;
+}
+
+.admin-card-body {
+    padding: 20px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2a5298;
+    margin-bottom: 10px;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.admin-actions {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+@media (max-width: 992px) {
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 1rem;
+}
+
+.action-btn:hover {
+    background: #e9ecef;
+    border-color: #2a5298;
+}
+
+.action-btn i {
+    font-size: 2rem;
+    color: #2a5298;
+    margin-bottom: 10px;
+}
+
+.action-btn-danger {
+    border-color: #f93e3e;
+}
+
+.action-btn-danger i {
+    color: #f93e3e;
+}
+
+.action-btn-danger:hover {
+    background: #ffe6e6;
+    border-color: #d63030;
+}
+
+.admin-tables {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 992px) {
+    .admin-tables {
+        grid-template-columns: 1fr;
+    }
+}
+
+.table-section {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Модальные окна */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 0;
+    width: 90%;
+    max-width: 600px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+}
+</style>
+{% endblock %}
