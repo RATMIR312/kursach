@@ -1,152 +1,231 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Score API - Documentation</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .header {
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        .endpoint {
-            background: white;
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .method {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-        .get { background: #61affe; color: white; }
-        .post { background: #49cc90; color: white; }
-        code {
-            background: #f4f4f4;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: monospace;
-        }
-        .example {
-            background: #f8f9fa;
-            border-left: 4px solid #2a5298;
-            padding: 15px;
-            margin: 15px 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🏏 Cricket Score API</h1>
-        <p>A Flask API for cricket score calculation with web scraping capabilities</p>
-        <p><strong>Base URL:</strong> <code>https://your-app.onrender.com</code></p>
-    </div>
-    
-    <h2>API Endpoints</h2>
-    
-    <div class="endpoint">
-        <div>
-            <span class="method get">GET</span>
-            <strong>/api/health</strong>
+{% extends "base.html" %}
+
+{% block title %}Cricket Score API - Главная{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="fas fa-home"></i> Cricket Score API</h1>
+    <p>Веб-приложение для подсчета очков в крикете с использованием веб-скрапинга и базы данных</p>
+    <p class="subtitle">Курсовой проект по дисциплине "Разработка ПО" | ИСТ-11</p>
+</div>
+
+<div class="dashboard">
+    <div class="stats">
+        <div class="stat-card">
+            <h3><i class="fas fa-baseball-ball"></i> Матчи</h3>
+            <p class="stat-number">{{ matches_count }}</p>
+            <a href="/matches" class="btn">Просмотреть</a>
         </div>
-        <p>Check API health status.</p>
-        <div class="example">
-            <strong>Response:</strong><br>
-            <code>{"status": "healthy", "service": "Cricket Score API", "version": "1.0"}</code>
+        
+        <div class="stat-card">
+            <h3><i class="fas fa-users"></i> Игроки</h3>
+            <p class="stat-number">{{ players_count }}</p>
+            <a href="/players" class="btn">Просмотреть</a>
+        </div>
+        
+        <div class="stat-card">
+            <h3><i class="fas fa-calculator"></i> Расчеты</h3>
+            <p class="stat-number">{{ calculations_count }}</p>
+            <a href="/calculate" class="btn">Рассчитать</a>
+        </div>
+        
+        <div class="stat-card">
+            <h3><i class="fas fa-database"></i> База данных</h3>
+            <p class="stat-number">SQLite</p>
+            <a href="/admin" class="btn">Управление</a>
         </div>
     </div>
+</div>
+
+<div class="features">
+    <h2><i class="fas fa-check-circle"></i> Функциональность проекта</h2>
     
-    <div class="endpoint">
-        <div>
-            <span class="method get">GET</span>
-            <strong>/api/matches</strong>
+    <div class="feature-list">
+        <div class="feature">
+            <i class="fas fa-database"></i>
+            <h3>База данных SQLite</h3>
+            <p>Полноценная работа с БД (CRUD операции, сложные запросы, JOIN)</p>
         </div>
-        <p>Get list of current cricket matches (scraped from external sources).</p>
-        <div class="example">
-            <strong>Example Request:</strong><br>
-            <code>GET /api/matches</code><br><br>
-            <strong>Example Response:</strong><br>
-            <code>{"status": "success", "count": 3, "matches": [...]}</code>
+        
+        <div class="feature">
+            <i class="fas fa-spider"></i>
+            <h3>Веб-скрапинг</h3>
+            <p>Автоматический сбор данных о матчах с внешних источников</p>
+        </div>
+        
+        <div class="feature">
+            <i class="fas fa-calculator"></i>
+            <h3>Расчет очков</h3>
+            <p>Автоматический подсчет очков по правилам крикета</p>
+        </div>
+        
+        <div class="feature">
+            <i class="fas fa-code"></i>
+            <h3>REST API</h3>
+            <p>Полноценный API для интеграции с другими системами</p>
         </div>
     </div>
+</div>
+
+<div class="api-docs">
+    <h2><i class="fas fa-book"></i> Примеры использования API</h2>
     
-    <div class="endpoint">
-        <div>
-            <span class="method get">GET</span>
-            <strong>/api/match/&lt;match_id&gt;</strong>
+    <div class="code-examples">
+        <div class="code-block">
+            <h4>Получить список матчей</h4>
+            <code>GET /api/matches</code>
+            <button class="btn-small" onclick="testEndpoint('/api/matches')">Проверить</button>
         </div>
-        <p>Get detailed information about a specific match.</p>
-        <div class="example">
-            <strong>Example:</strong><br>
-            <code>GET /api/match/match_001</code>
+        
+        <div class="code-block">
+            <h4>Получить игроков-отбивающих</h4>
+            <code>GET /api/players?role=batsman</code>
+            <button class="btn-small" onclick="testEndpoint('/api/players?role=batsman')">Проверить</button>
         </div>
-    </div>
-    
-    <div class="endpoint">
-        <div>
-            <span class="method post">POST</span>
-            <strong>/api/calculate/player</strong>
+        
+        <div class="code-block">
+            <h4>Топ боулеры</h4>
+            <code>GET /api/players/top/bowler</code>
+            <button class="btn-small" onclick="testEndpoint('/api/players/top/bowler')">Проверить</button>
         </div>
-        <p>Calculate fantasy points for a player.</p>
-        <div class="example">
-            <strong>Request Body (batsman example):</strong><br>
-            <code>
-            {
-                "player_type": "batsman",
-                "runs": 65,
-                "balls_faced": 42,
-                "fours": 8,
-                "sixes": 2,
-                "dismissal_type": "caught"
-            }
-            </code><br><br>
-            <strong>Response:</strong><br>
-            <code>{"status": "success", "player_type": "batsman", "points": 98.5}</code>
+        
+        <div class="code-block">
+            <h4>Проверка работоспособности</h4>
+            <code>GET /api/health</code>
+            <button class="btn-small" onclick="testEndpoint('/api/health')">Проверить</button>
         </div>
     </div>
+</div>
+
+<div class="requirements">
+    <h2><i class="fas fa-clipboard-check"></i> Соответствие требованиям курсовой</h2>
     
-    <h2>Deployment to Render</h2>
-    <ol>
-        <li>Create a new account on <a href="https://render.com" target="_blank">Render.com</a></li>
-        <li>Click "New +" and select "Web Service"</li>
-        <li>Connect your GitHub/GitLab repository or deploy manually</li>
-        <li>Set the following:
-            <ul>
-                <li><strong>Name:</strong> cricket-score-api</li>
-                <li><strong>Runtime:</strong> Python 3</li>
-                <li><strong>Build Command:</strong> <code>pip install -r requirements.txt</code></li>
-                <li><strong>Start Command:</strong> <code>gunicorn app:app</code></li>
-            </ul>
-        </li>
-        <li>Click "Create Web Service"</li>
-        <li>Your API will be available at: <code>https://cricket-score-api.onrender.com</code></li>
-    </ol>
-    
-    <div class="endpoint" style="background-color: #e8f4fd;">
-        <h3>📚 Project Structure Summary</h3>
-        <ul>
-            <li><strong>app.py</strong> - Main Flask application with all API routes</li>
-            <li><strong>scraper.py</strong> - Web scraping module for fetching live match data</li>
-            <li><strong>score_calculator.py</strong> - Core logic for calculating player points</li>
-            <li><strong>requirements.txt</strong> - Python dependencies</li>
-            <li><strong>Procfile</strong> - Instructions for Render deployment</li>
-        </ul>
-    </div>
-</body>
-</html>
+    <ul class="requirement-list">
+        <li><i class="fas fa-check"></i> <strong>Лабораторная работа №2:</strong> Работа с базой данных SQLite, сложные запросы</li>
+        <li><i class="fas fa-check"></i> <strong>Лабораторная работа №4:</strong> Приложение на базе Flask</li>
+        <li><i class="fas fa-check"></i> <strong>Лабораторная работа №5:</strong> Веб-приложение с использованием БД</li>
+        <li><i class="fas fa-check"></i> <strong>Курсовой проект:</strong> Работающий программный продукт + пояснительная записка</li>
+    </ul>
+</div>
+
+<script>
+async function testEndpoint(endpoint) {
+    try {
+        const response = await fetch(endpoint);
+        const data = await response.json();
+        alert(`Ответ от ${endpoint}:\n\n${JSON.stringify(data, null, 2)}`);
+    } catch (error) {
+        alert(`Ошибка при запросе ${endpoint}:\n${error}`);
+    }
+}
+
+// Загружаем статистику при загрузке страницы
+async function loadStats() {
+    try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        
+        // Обновляем статистику на странице
+        document.querySelectorAll('.stat-number')[0].textContent = data.tables.matches;
+        document.querySelectorAll('.stat-number')[1].textContent = data.tables.players;
+        document.querySelectorAll('.stat-number')[2].textContent = data.tables.points_history;
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+// Запускаем при загрузке страницы
+window.addEventListener('DOMContentLoaded', loadStats);
+</script>
+
+<style>
+.dashboard {
+    margin: 30px 0;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #2a5298;
+    margin: 10px 0;
+}
+
+.feature-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.feature {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.feature i {
+    font-size: 2rem;
+    color: #2a5298;
+    margin-bottom: 10px;
+}
+
+.code-examples {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.code-block {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    border-left: 4px solid #2a5298;
+}
+
+.code-block code {
+    display: block;
+    margin: 10px 0;
+    padding: 10px;
+    background: white;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.requirement-list {
+    list-style: none;
+    padding: 0;
+}
+
+.requirement-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.requirement-list li:last-child {
+    border-bottom: none;
+}
+
+.requirement-list i.fa-check {
+    color: #49cc90;
+    margin-right: 10px;
+}
+</style>
+{% endblock %}
