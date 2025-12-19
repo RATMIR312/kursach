@@ -1,3 +1,5 @@
+[file name]: database.py
+[file content begin]
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -5,7 +7,7 @@ import json
 from typing import Dict, List, Optional, Any
 from flask import current_app
 from models import db, Team, Player, Match, Innings, PlayerPerformance
-import os  # Добавьте этот импорт
+import os
 
 class DatabaseManager:
     """Менеджер для работы с базой данных"""
@@ -89,80 +91,89 @@ class DatabaseManager:
     def get_team_stats(team_id: int) -> Dict[str, Any]:
         """Получение статистики команды"""
         try:
-            team = Team.query.get(team_id)
-            if not team:
-                return {
-                    'error': 'Team not found',
-                    'team_id': team_id
-                }
-        
-        # Статистика матчей
-        matches_played = Match.query.filter(
-            (Match.team1_id == team_id) | (Match.team2_id == team_id)
-        ).count()
-        
-        matches_won = Match.query.filter_by(winner_id=team_id).count()
-        matches_lost = matches_played - matches_won
-        
-        # Статистика игроков
-        players = Player.query.filter_by(team_id=team_id).all()
-        total_runs = sum(p.total_runs or 0 for p in players)
-        total_wickets = sum(p.total_wickets or 0 for p in players)
-        
+            team = Team.query.get_or_404(team_id)
+            
+            # Статистика матчей
+            matches_played = Match.query.filter(
+                (Match.team1_id == team_id) | (Match.team2_id == team_id)
+            ).count()
+            
+            matches_won = Match.query.filter_by(winner_id=team_id).count()
+            matches_lost = matches_played - matches_won
+            
+            # Статистика игроков
+            players = Player.query.filter_by(team_id=team_id).all()
+            total_runs = sum(p.total_runs or 0 for p in players)
+            total_wickets = sum(p.total_wickets or 0 for p in players)
+            
+            # Лучшие игроки
+            top_batsmen = sorted(players, key=lambda x: x.total_runs or 0, reverse=True)[:3]
+            top_bowlers = sorted(players, key=lambda x: x.total_wickets or 0, reverse=True)[:3]
+            
+            return {
+                'team': team.to_dict() if team else {},
+                'matches_played': matches_played,
+                'matches_won': matches_won,
+                'matches_lost': matches_lost,
+                'win_percentage': round((matches_won / matches_played * 100), 2) if matches_played > 0 else 0,
+                'total_runs': total_runs,
+                'total_wickets': total_wickets,
+                'top_batsmen': [p.to_dict() for p in top_batsmen],
+                'top_bowlers': [p.to_dict() for p in top_bowlers]
+            }
         except Exception as e:
             print(f"Error in get_team_stats: {e}")
-            return {'error': str(e)}
-        
-        # Лучшие игроки
-        top_batsmen = sorted(players, key=lambda x: x.total_runs, reverse=True)[:3]
-        top_bowlers = sorted(players, key=lambda x: x.total_wickets, reverse=True)[:3]
-        
-        return {
-            'team': team.to_dict(),
-            'matches_played': matches_played,
-            'matches_won': matches_won,
-            'matches_lost': matches_lost,
-            'win_percentage': round((matches_won / matches_played * 100), 2) if matches_played > 0 else 0,
-            'total_runs': total_runs,
-            'total_wickets': total_wickets,
-            'top_batsmen': [p.to_dict() for p in top_batsmen],
-            'top_bowlers': [p.to_dict() for p in top_bowlers]
-        }
+            return {
+                'error': str(e),
+                'team_id': team_id
+            }
     
     @staticmethod
     def get_player_stats(player_id: int) -> Dict[str, Any]:
         """Получение детальной статистики игрока"""
-        player = Player.query.get_or_404(player_id)
-        
-        performances = PlayerPerformance.query.filter_by(player_id=player_id).all()
-        
-        if performances:
-            # Агрегированная статистика из performances
-            total_performance_runs = sum(p.runs_scored for p in performances)
-            total_performance_wickets = sum(p.wickets_taken for p in performances)
-            total_balls_faced = sum(p.balls_faced for p in performances)
-            total_overs_bowled = sum(p.overs_bowled for p in performances)
+        try:
+            player = Player.query.get_or_404(player_id)
             
-            # Рассчитываем средние
-            batting_average = round(total_performance_runs / len([p for p in performances if p.runs_scored > 0]), 2) if any(p.runs_scored > 0 for p in performances) else 0
-            bowling_average = round(total_performance_wickets / len([p for p in performances if p.wickets_taken > 0]), 2) if any(p.wickets_taken > 0 for p in performances) else 0
-        else:
-            total_performance_runs = 0
-            total_performance_wickets = 0
-            batting_average = 0
-            bowling_average = 0
-        
-        return {
-            'player': player.to_dict(),
-            'performance_stats': {
-                'total_performance_runs': total_performance_runs,
-                'total_performance_wickets': total_performance_wickets,
-                'batting_average': batting_average,
-                'bowling_average': bowling_average,
-                'total_performances': len(performances)
-            },
-            'recent_performances': [p.to_dict() for p in performances[:5]]
-        }
+            performances = PlayerPerformance.query.filter_by(player_id=player_id).all()
+            
+            if performances:
+                # Агрегированная статистика из performances
+                total_performance_runs = sum(p.runs_scored or 0 for p in performances)
+                total_performance_wickets = sum(p.wickets_taken or 0 for p in performances)
+                total_balls_faced = sum(p.balls_faced or 0 for p in performances)
+                total_overs_bowled = sum(p.overs_bowled or 0 for p in performances)
+                
+                # Рассчитываем средние
+                batting_average = 0
+                bowling_average = 0
+                
+                if any(p.runs_scored > 0 for p in performances):
+                    batting_average = round(total_performance_runs / len([p for p in performances if p.runs_scored > 0]), 2)
+                if any(p.wickets_taken > 0 for p in performances):
+                    bowling_average = round(total_performance_wickets / len([p for p in performances if p.wickets_taken > 0]), 2)
+            else:
+                total_performance_runs = 0
+                total_performance_wickets = 0
+                batting_average = 0
+                bowling_average = 0
+            
+            return {
+                'player': player.to_dict() if player else {},
+                'performance_stats': {
+                    'total_performance_runs': total_performance_runs,
+                    'total_performance_wickets': total_performance_wickets,
+                    'batting_average': batting_average,
+                    'bowling_average': bowling_average,
+                    'total_performances': len(performances)
+                },
+                'recent_performances': [p.to_dict() for p in performances[:5]] if performances else []
+            }
+        except Exception as e:
+            print(f"Error in get_player_stats: {e}")
+            return {
+                'error': str(e),
+                'player_id': player_id
+            }
     
     @staticmethod
     def save_scraped_data(data: Dict[str, Any]) -> bool:
@@ -206,20 +217,28 @@ class DatabaseManager:
     @staticmethod
     def get_recent_matches(limit: int = 10) -> List[Dict]:
         """Получение последних матчей"""
-        matches = Match.query.order_by(Match.match_date.desc()).limit(limit).all()
-        return [match.to_dict() for match in matches]
+        try:
+            matches = Match.query.order_by(Match.match_date.desc()).limit(limit).all()
+            return [match.to_dict() for match in matches] if matches else []
+        except Exception as e:
+            print(f"Error in get_recent_matches: {e}")
+            return []
     
     @staticmethod
     def get_top_players(by: str = 'runs', limit: int = 10) -> List[Dict]:
         """Получение лучших игроков по статистике"""
-        if by == 'runs':
-            players = Player.query.order_by(Player.total_runs.desc()).limit(limit).all()
-        elif by == 'wickets':
-            players = Player.query.order_by(Player.total_wickets.desc()).limit(limit).all()
-        else:
-            players = Player.query.order_by(Player.total_matches.desc()).limit(limit).all()
-        
-        return [player.to_dict() for player in players]
+        try:
+            if by == 'runs':
+                players = Player.query.order_by(Player.total_runs.desc()).limit(limit).all()
+            elif by == 'wickets':
+                players = Player.query.order_by(Player.total_wickets.desc()).limit(limit).all()
+            else:
+                players = Player.query.order_by(Player.total_matches.desc()).limit(limit).all()
+            
+            return [player.to_dict() for player in players] if players else []
+        except Exception as e:
+            print(f"Error in get_top_players: {e}")
+            return []
 
 @contextmanager
 def get_db_connection():
@@ -232,3 +251,4 @@ def get_db_connection():
     finally:
         if conn:
             conn.close()
+[file content end]
