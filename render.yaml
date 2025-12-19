@@ -3,12 +3,12 @@ services:
     name: cricket-scores-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn wsgi:app
+    startCommand: gunicorn app:app
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      - key: PYTHON_VERSION
-        value: 3.9.18
       - key: RENDER
         value: true
+      - key: TZ
+        value: UTC
     autoDeploy: true
