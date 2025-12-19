@@ -5,6 +5,7 @@ import json
 from typing import Dict, List, Optional, Any
 from flask import current_app
 from models import db, Team, Player, Match, Innings, PlayerPerformance
+import os  # Добавьте этот импорт
 
 class DatabaseManager:
     """Менеджер для работы с базой данных"""
@@ -13,6 +14,13 @@ class DatabaseManager:
     def init_db(app):
         """Инициализация базы данных"""
         with app.app_context():
+            # СОЗДАЕМ ДИРЕКТОРИЮ ДЛЯ БАЗЫ ДАННЫХ, ЕСЛИ ЕЁ НЕТ
+            db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                print(f"Created database directory: {db_dir}")
+            
             db.create_all()
             # Создаем тестовые данные если база пустая
             if not Team.query.first():
