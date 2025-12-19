@@ -1,298 +1,275 @@
 {% extends "base.html" %}
 
-{% block title %}Админ панель - Cricket Scores API{% endblock %}
+{% block title %}Админ - Cricket Scores API{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1><i class="fas fa-cog"></i> Административная панель</h1>
-    <p>Управление скрапингом данных и настройками системы</p>
+    <h1><i class="fas fa-cog"></i> Управление системой</h1>
+    <p>Панель управления скрапингом данных</p>
 </div>
 
-<div class="admin-container">
-    <div class="admin-sidebar">
-        <div class="admin-menu">
-            <a href="#scraping" class="menu-item active">
-                <i class="fas fa-sync-alt"></i> Скрапинг данных
-            </a>
-            <a href="#database" class="menu-item">
-                <i class="fas fa-database"></i> База данных
-            </a>
-            <a href="#api" class="menu-item">
-                <i class="fas fa-code"></i> Настройки API
-            </a>
-            <a href="#logs" class="menu-item">
-                <i class="fas fa-clipboard-list"></i> Логи системы
-            </a>
-        </div>
-        
-        <div class="system-info card">
-            <h3><i class="fas fa-info-circle"></i> Информация о системе</h3>
-            <ul class="info-list">
-                <li><strong>Версия:</strong> 1.0.0</li>
-                <li><strong>Статус:</strong> <span class="status-active">Активен</span></li>
-                <li><strong>База данных:</strong> SQLite</li>
-                <li><strong>Последнее обновление:</strong> {{ last_update or "Недавно" }}</li>
-            </ul>
+<div class="admin-content">
+    <div class="admin-card">
+        <h2><i class="fas fa-info-circle"></i> Информация о системе</h2>
+        <div class="system-info">
+            <p><strong>Источник данных:</strong> Cricbuzz.com</p>
+            <p><strong>Последнее обновление:</strong> 
+                {% if last_update %}
+                    {{ last_update.strftime('%d.%m.%Y %H:%M') }}
+                {% else %}
+                    Никогда
+                {% endif %}
+            </p>
+            <p><strong>Статус:</strong> 
+                {% if is_scraping %}
+                    <span class="status-badge status-live">Скрапинг выполняется</span>
+                {% else %}
+                    <span class="status-badge status-idle">Ожидание</span>
+                {% endif %}
+            </p>
         </div>
     </div>
-    
-    <div class="admin-content">
-        <div id="scraping" class="admin-section active">
-            <div class="section-header">
-                <h2><i class="fas fa-sync-alt"></i> Управление скрапингом</h2>
-                <p>Запуск и настройка веб-скрапинга данных о крикете</p>
+
+    <div class="admin-card">
+        <h2><i class="fas fa-chart-bar"></i> Статистика базы данных</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">Команд</div>
+                <div class="stat-value">{{ stats.teams or 0 }}</div>
             </div>
-            
-            <div class="scraping-controls">
-                <div class="control-card">
-                    <h3><i class="fas fa-play-circle"></i> Быстрый запуск</h3>
-                    <p>Немедленный запуск скрапинга данных с источников</p>
-                    
-                    <div class="control-buttons">
-                        <button id="scrapeNowBtn" class="btn btn-primary">
-                            <i class="fas fa-play"></i> Запустить скрапинг сейчас
-                        </button>
-                        
-                        <button id="scrapeLiveBtn" class="btn btn-success">
-                            <i class="fas fa-broadcast-tower"></i> Только live матчи
-                        </button>
-                    </div>
-                    
-                    <div class="scraping-status" id="scrapingStatus">
-                        <div class="status-indicator">
-                            <div class="status-dot idle"></div>
-                            <span>Готов к работе</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="control-card">
-                    <h3><i class="fas fa-clock"></i> Расписание</h3>
-                    <p>Настройка автоматического обновления данных</p>
-                    
-                    <form class="schedule-form">
-                        <div class="form-group">
-                            <label for="interval">Интервал обновления:</label>
-                            <select id="interval" class="form-select">
-                                <option value="1">Каждый час</option>
-                                <option value="3">Каждые 3 часа</option>
-                                <option value="6">Каждые 6 часов</option>
-                                <option value="12">Каждые 12 часов</option>
-                                <option value="24">Раз в день</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" checked>
-                                Автоматический скрапинг включен
-                            </label>
-                        </div>
-                        
-                        <button type="button" class="btn btn-secondary">
-                            <i class="fas fa-save"></i> Сохранить настройки
-                        </button>
-                    </form>
-                </div>
+            <div class="stat-item">
+                <div class="stat-label">Игроков</div>
+                <div class="stat-value">{{ stats.players or 0 }}</div>
             </div>
-            
-            <div class="scraping-sources card">
-                <h3><i class="fas fa-globe"></i> Источники данных</h3>
-                <table class="sources-table">
-                    <thead>
-                        <tr>
-                            <th>Источник</th>
-                            <th>Тип данных</th>
-                            <th>Статус</th>
-                            <th>Последнее обновление</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>ESPN Cricinfo</td>
-                            <td>Матчи, игроки, статистика</td>
-                            <td><span class="status-active">Активен</span></td>
-                            <td>{{ last_update or "Сегодня" }}</td>
-                            <td>
-                                <button class="btn btn-small">
-                                    <i class="fas fa-test"></i> Проверить
-                                </button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>ICC Official</td>
-                            <td>Турниры, команды</td>
-                            <td><span class="status-inactive">Неактивен</span></td>
-                            <td>Недавно</td>
-                            <td>
-                                <button class="btn btn-small">
-                                    <i class="fas fa-power-off"></i> Включить
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="stat-item">
+                <div class="stat-label">Матчей</div>
+                <div class="stat-value">{{ stats.matches or 0 }}</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Live</div>
+                <div class="stat-value">{{ stats.live or 0 }}</div>
             </div>
         </div>
+    </div>
+
+    <div class="admin-card">
+        <h2><i class="fas fa-sync-alt"></i> Управление скрапингом</h2>
         
-        <div id="database" class="admin-section">
-            <div class="section-header">
-                <h2><i class="fas fa-database"></i> Управление базой данных</h2>
-                <p>Резервное копирование и обслуживание базы данных</p>
-            </div>
+        <div class="control-buttons">
+            <button id="startScraping" class="btn btn-primary" {% if is_scraping %}disabled{% endif %}>
+                <i class="fas fa-play"></i> Запустить скрапинг
+            </button>
             
-            <div class="database-stats">
-                <div class="stat-card">
-                    <h4>Размер БД</h4>
-                    <p class="stat-number">~2.4 MB</p>
-                </div>
-                <div class="stat-card">
-                    <h4>Записей матчей</h4>
-                    <p class="stat-number">{{ matches_count or '25' }}</p>
-                </div>
-                <div class="stat-card">
-                    <h4>Записей игроков</h4>
-                    <p class="stat-number">{{ players_count or '50+' }}</p>
-                </div>
-                <div class="stat-card">
-                    <h4>Записей команд</h4>
-                    <p class="stat-number">{{ teams_count or '4' }}</p>
-                </div>
-            </div>
-            
-            <div class="database-actions">
-                <div class="action-card">
-                    <h3><i class="fas fa-download"></i> Резервное копирование</h3>
-                    <p>Создание резервной копии базы данных</p>
-                    <button class="btn btn-primary">
-                        <i class="fas fa-save"></i> Создать backup
-                    </button>
-                </div>
-                
-                <div class="action-card">
-                    <h3><i class="fas fa-trash-alt"></i> Очистка кэша</h3>
-                    <p>Удаление устаревших данных</p>
-                    <button class="btn btn-warning">
-                        <i class="fas fa-broom"></i> Очистить кэш
-                    </button>
-                </div>
-                
-                <div class="action-card">
-                    <h3><i class="fas fa-redo"></i> Сброс данных</h3>
-                    <p>Сброс к тестовым данным</p>
-                    <button class="btn btn-danger">
-                        <i class="fas fa-exclamation-triangle"></i> Сбросить данные
-                    </button>
-                </div>
-            </div>
+            <button id="checkStatus" class="btn btn-secondary">
+                <i class="fas fa-refresh"></i> Обновить статус
+            </button>
         </div>
         
-        <div id="api" class="admin-section">
-            <div class="section-header">
-                <h2><i class="fas fa-code"></i> Настройки API</h2>
-                <p>Управление доступом к API и ограничениями</p>
-            </div>
-            
-            <div class="api-settings">
-                <div class="setting-card">
-                    <h3><i class="fas fa-key"></i> Ключи API</h3>
-                    <p>Управление ключами доступа к API</p>
-                    
-                    <div class="api-key-list">
-                        <div class="api-key-item">
-                            <code>sk_live_1234567890abcdef</code>
-                            <span class="key-status active">Активен</span>
-                            <button class="btn btn-small">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
+        <div class="scraping-status">
+            <h3>Статус:</h3>
+            <div id="statusMessage">
+                {% if is_scraping %}
+                    <div class="status-indicator">
+                        <div class="status-dot loading"></div>
+                        <span>Выполняется скрапинг...</span>
                     </div>
-                    
-                    <button class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Создать новый ключ
-                    </button>
-                </div>
-                
-                <div class="setting-card">
-                    <h3><i class="fas fa-shield-alt"></i> Ограничения запросов</h3>
-                    <p>Настройка лимитов для API</p>
-                    
-                    <form class="limits-form">
-                        <div class="form-group">
-                            <label for="requestsPerMinute">Запросов в минуту:</label>
-                            <input type="number" id="requestsPerMinute" value="60" class="form-input">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="requestsPerHour">Запросов в час:</label>
-                            <input type="number" id="requestsPerHour" value="1000" class="form-input">
-                        </div>
-                        
-                        <button type="button" class="btn btn-secondary">
-                            <i class="fas fa-save"></i> Сохранить лимиты
-                        </button>
-                    </form>
-                </div>
+                {% else %}
+                    <div class="status-indicator">
+                        <div class="status-dot idle"></div>
+                        <span>Готов к работе</span>
+                    </div>
+                {% endif %}
             </div>
+        </div>
+    </div>
+
+    <div class="admin-card">
+        <h2><i class="fas fa-tools"></i> Быстрые действия</h2>
+        <div class="quick-actions">
+            <button class="btn btn-small" onclick="window.location.reload()">
+                <i class="fas fa-redo"></i> Обновить страницу
+            </button>
+            <button class="btn btn-small" onclick="window.open('/api/v1/health', '_blank')">
+                <i class="fas fa-heartbeat"></i> Проверить API
+            </button>
+            <button class="btn btn-small" onclick="window.open('/api-docs', '_blank')">
+                <i class="fas fa-book"></i> Документация
+            </button>
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Навигация по меню
-    const menuItems = document.querySelectorAll('.menu-item');
-    const sections = document.querySelectorAll('.admin-section');
+    const startBtn = document.getElementById('startScraping');
+    const checkBtn = document.getElementById('checkStatus');
+    const statusMsg = document.getElementById('statusMessage');
     
-    menuItems.forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            const targetId = this.getAttribute('href').substring(1);
-            
-            // Обновляем активный пункт меню
-            menuItems.forEach(mi => mi.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Показываем выбранную секцию
-            sections.forEach(section => {
-                section.classList.remove('active');
-                if (section.id === targetId) {
-                    section.classList.add('active');
+    function updateStatus() {
+        fetch('/api/v1/admin/status')
+            .then(r => r.json())
+            .then(data => {
+                let html = '';
+                
+                if (data.scraping) {
+                    html = `
+                        <div class="status-indicator">
+                            <div class="status-dot loading"></div>
+                            <span>Выполняется скрапинг...</span>
+                        </div>
+                    `;
+                    startBtn.disabled = true;
+                } else {
+                    html = `
+                        <div class="status-indicator">
+                            <div class="status-dot idle"></div>
+                            <span>Готов к работе</span>
+                        </div>
+                        <p><strong>Данные:</strong> ${data.teams_count} команд, ${data.players_count} игроков, ${data.matches_count} матчей</p>
+                        <p><strong>Обновлено:</strong> ${data.last_update ? new Date(data.last_update).toLocaleString() : 'Никогда'}</p>
+                    `;
+                    startBtn.disabled = false;
                 }
-            });
-        });
-    });
-    
-    // Кнопка запуска скрапинга
-    const scrapeNowBtn = document.getElementById('scrapeNowBtn');
-    const scrapingStatus = document.getElementById('scrapingStatus');
-    
-    if (scrapeNowBtn) {
-        scrapeNowBtn.addEventListener('click', function() {
-            // Обновляем статус
-            scrapingStatus.innerHTML = `
-                <div class="status-indicator">
-                    <div class="status-dot loading"></div>
-                    <span>Скрапинг выполняется...</span>
-                </div>
-            `;
-            
-            // Имитируем запрос к API
-            setTimeout(() => {
-                scrapingStatus.innerHTML = `
+                
+                statusMsg.innerHTML = html;
+            })
+            .catch(() => {
+                statusMsg.innerHTML = `
                     <div class="status-indicator">
-                        <div class="status-dot success"></div>
-                        <span>Скрапинг завершен успешно!</span>
-                    </div>
-                    <div class="status-details">
-                        Обновлено: 5 матчей, 12 игроков
+                        <div class="status-dot error"></div>
+                        <span>Ошибка подключения</span>
                     </div>
                 `;
-            }, 2000);
-        });
+            });
     }
+    
+    // Кнопка запуска
+    startBtn.addEventListener('click', function() {
+        if (this.disabled) return;
+        
+        fetch('/api/v1/admin/update', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message);
+                updateStatus();
+            })
+            .catch(() => alert('Ошибка сервера'));
+    });
+    
+    // Кнопка обновления статуса
+    checkBtn.addEventListener('click', updateStatus);
+    
+    // Автообновление каждые 10 секунд
+    setInterval(updateStatus, 10000);
 });
 </script>
+
+<style>
+.admin-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.admin-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.scraping-status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-dot.loading {
+    background: #f39c12;
+    animation: pulse 1.5s infinite;
+}
+
+.status-dot.idle {
+    background: #27ae60;
+}
+
+.status-dot.error {
+    background: #e74c3c;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-badge.status-live {
+    background: #e74c3c;
+    color: white;
+}
+
+.status-badge.status-idle {
+    background: #27ae60;
+    color: white;
+}
+
+.quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+</style>
 {% endblock %}
