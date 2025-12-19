@@ -1,5 +1,3 @@
-[file name]: database.py
-[file content begin]
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -251,4 +249,3 @@ def get_db_connection():
     finally:
         if conn:
             conn.close()
-[file content end]
