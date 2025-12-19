@@ -1,7 +1,7 @@
 Flask==2.3.2
 requests==2.31.0
 beautifulsoup4==4.12.2
-lxml==4.9.2
 Flask-SQLAlchemy==3.0.5
 Flask-CORS==4.0.0
 pytest==7.4.2
+html5lib==1.1
