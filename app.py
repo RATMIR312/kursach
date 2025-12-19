@@ -1,5 +1,5 @@
 """
-app.py - Упрощенный Cricket Scores API
+app.py - Cricket Scores API для Render
 """
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import atexit
 import os
 import sys
-import threading
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,8 +32,8 @@ is_scraping = False
 
 # ========== СКРАПИНГ ==========
 
-def scrape_background():
-    """Фоновая задача скрапинга"""
+def scrape_data():
+    """Функция скрапинга данных"""
     global is_scraping, last_update
     
     if is_scraping:
@@ -43,7 +42,7 @@ def scrape_background():
     is_scraping = True
     
     try:
-        print("🔄 Запуск скрапинга...")
+        print("🔄 Начинаю скрапинг данных...")
         
         with app.app_context():
             # Получаем данные
@@ -139,18 +138,13 @@ def scrape_background():
             return True
             
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
-        db.session.rollback()
+        print(f"❌ Ошибка скрапинга: {e}")
+        import traceback
+        traceback.print_exc()
         return False
+    
     finally:
         is_scraping = False
-
-def start_scraping():
-    """Запуск скрапинга в фоне"""
-    thread = threading.Thread(target=scrape_background)
-    thread.daemon = True
-    thread.start()
-    return True
 
 # ========== API ЭНДПОИНТЫ ==========
 
@@ -233,11 +227,15 @@ def update_data():
     if is_scraping:
         return jsonify({'error': 'Скрапинг уже выполняется'}), 400
     
-    success = start_scraping()
+    # Запускаем скрапинг в отдельном потоке чтобы не блокировать запрос
+    import threading
+    thread = threading.Thread(target=scrape_data)
+    thread.daemon = True
+    thread.start()
     
     return jsonify({
-        'success': success,
-        'message': 'Скрапинг запущен' if success else 'Ошибка запуска'
+        'success': True,
+        'message': 'Скрапинг запущен в фоновом режиме'
     })
 
 @app.route('/api/v1/admin/status', methods=['GET'])
@@ -303,25 +301,22 @@ def admin_page():
 
 # ========== ПЛАНИРОВЩИК ==========
 
-@scheduler.task('interval', id='auto_update', hours=6)
+@scheduler.task('interval', id='auto_update', minutes=30)
 def auto_update():
-    """Автоматическое обновление каждые 6 часов"""
+    """Автоматическое обновление каждые 30 минут"""
     print(f"⏰ Автообновление: {datetime.now()}")
-    start_scraping()
+    scrape_data()
 
-@scheduler.task('interval', id='hourly_check', hours=1)
-def hourly_check():
-    """Ежечасная проверка"""
+@scheduler.task('interval', id='hourly_check', minutes=5)
+def ping_self():
+    """Пинг самого себя чтобы держать инстанс активным"""
     try:
+        # Пинг самого себя
         with app.app_context():
-            live_matches = Match.query.filter_by(status='live').all()
-            for match in live_matches:
-                if match.match_date and (datetime.utcnow() - match.match_date) > timedelta(hours=8):
-                    match.status = 'completed'
-                    db.session.commit()
-                    print(f"📅 Матч {match.id} завершен")
+            # Просто проверяем что база работает
+            Team.query.first()
     except Exception as e:
-        print(f"⚠️ Ошибка проверки: {e}")
+        print(f"⚠️ Пинг не удался: {e}")
 
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
 
@@ -339,8 +334,9 @@ def init_app():
         
         # Запускаем первый скрапинг
         global last_update
-        start_scraping()
-        last_update = datetime.now()
+        if not Match.query.first():
+            scrape_data()
+            last_update = datetime.now()
 
 def shutdown():
     """Завершение работы"""
@@ -361,17 +357,12 @@ if __name__ == '__main__':
         scheduler.start()
         print("✅ Планировщик запущен")
     
-    print("=" * 50)
-    print("🏏 Cricket Scores API")
-    print("=" * 50)
-    print(f"📍 http://localhost:5000")
-    print(f"📊 API: http://localhost:5000/api/v1")
-    print(f"🔄 Автообновление: каждые 6 часов")
-    print("=" * 50)
-    
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Запускаем Flask
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
 else:
     # Для Gunicorn
     init_app()
     if not scheduler.running:
         scheduler.start()
+        print("✅ Планировщик запущен в production")
