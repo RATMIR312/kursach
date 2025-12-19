@@ -53,29 +53,6 @@ def health_check():
 # --- Матчи ---
 
 @app.route(f'{Config.API_PREFIX}/matches', methods=['GET'])
-def get_matches():
-    """Получение списка матчей"""
-    page = request.args.get('page', 1, type=int)
-    match_type = request.args.get('type')
-    status = request.args.get('status')
-    team_id = request.args.get('team_id', type=int)
-    
-    query = Match.query
-    
-    if match_type:
-        query = query.filter_by(match_type=match_type)
-    if status:
-        query = query.filter_by(status=status)
-    if team_id:
-        query = query.filter((Match.team1_id == team_id) | (Match.team2_id == team_id))
-    
-    matches = query.order_by(Match.match_date.desc()).all()
-    
-    return jsonify({
-        'matches': [match.to_dict() for match in matches],
-        'total': len(matches)
-    })
-
 @app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
 def get_match(match_id):
     """Получение информации о конкретном матче"""
@@ -101,6 +78,8 @@ def get_match(match_id):
         'match': match.to_dict(),
         'innings': innings_data
     })
+    
+@app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
 
 @app.route(f'{Config.API_PREFIX}/matches/live', methods=['GET'])
 def get_live_matches():
@@ -337,12 +316,6 @@ def api_docs():
     ]
 
     return render_template('api_docs.html', endpoints=api_endpoints)
-
-@app.route('/api/v1/matches/<int:match_id>')
-def get_match(match_id):
-    """Получение информации о конкретном матче"""
-    match = Match.query.get_or_404(match_id)
-    return jsonify(match.to_dict())
 
 @app.route('/api/v1/teams/<int:team_id>')
 def get_team(team_id):
