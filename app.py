@@ -81,15 +81,9 @@ def get_matches():
         }), 500
 
 @app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
-def get_match_by_id(match_id):
-    """Получение информации о конкретном матче"""
-    try:
-        match = Match.query.get(match_id)
-        if not match:
-            return jsonify({
-                'error': 'Match not found',
-                'match_id': match_id
-            }), 404
+def get_match(match_id): 
+    match = Match.query.get_or_404(match_id)
+    return jsonify(match.to_dict())
         
         # Получаем информацию об иннингах
         innings = Innings.query.filter_by(match_id=match_id).all()
