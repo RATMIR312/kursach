@@ -1,4 +1,6 @@
-# app.py - Cricket Scores API с автоматическим обновлением
+"""
+app.py - Упрощенный Cricket Scores API
+"""
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from flask_apscheduler import APScheduler
@@ -6,245 +8,247 @@ from datetime import datetime, timedelta
 import atexit
 import os
 import sys
+import threading
 
-# Добавляем текущую директорию в путь для импорта модулей
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import Config
 from models import db, Team, Player, Match
 from database import DatabaseManager
+from scraper import scraper
 
-# Инициализация приложения
+# Инициализация
 app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
-
-# Инициализация базы данных
 db.init_app(app)
 
-# Инициализация планировщика
+# Планировщик
 scheduler = APScheduler()
 scheduler.init_app(app)
 
-# Глобальная переменная для отслеживания последнего обновления
-last_update_time = None
+# Глобальные переменные
+last_update = None
+is_scraping = False
 
-def update_cricket_data():
-    """Функция для обновления данных о крикете"""
-    global last_update_time
+# ========== СКРАПИНГ ==========
+
+def scrape_background():
+    """Фоновая задача скрапинга"""
+    global is_scraping, last_update
+    
+    if is_scraping:
+        return False
+    
+    is_scraping = True
     
     try:
-        print(f"[{datetime.now()}] Запуск автоматического обновления данных...")
+        print("🔄 Запуск скрапинга...")
         
         with app.app_context():
-            # Здесь будет ваш код для скрапинга данных
-            # Временно создаем тестовые актуальные данные
+            # Получаем данные
+            data = scraper.scrape_all_data()
             
-            # Создаем команды если их нет
-            if not Team.query.first():
-                print("Создание начальных данных...")
-                DatabaseManager._create_sample_data()
+            # Команды
+            team_map = {}
+            for team in Team.query.all():
+                team_map[team.name] = team.id
             
-            # Обновляем статусы матчей
-            matches = Match.query.all()
-            for match in matches:
-                # Пример логики обновления:
-                # Если матч "live" и дата старше 8 часов - завершаем его
-                if match.status == 'live' and match.match_date:
-                    time_diff = datetime.utcnow() - match.match_date
-                    if time_diff > timedelta(hours=8):
-                        match.status = 'completed'
-                        if not match.result:
-                            match.result = "Матч завершен"
-                        db.session.commit()
-                        print(f"Матч {match.id} переведен в статус 'completed'")
+            for team_data in data['teams']:
+                if team_data['name'] not in team_map:
+                    new_team = Team(
+                        name=team_data['name'],
+                        short_name=team_data['short_name'],
+                        country=team_data['country'],
+                        founded_year=team_data.get('founded_year')
+                    )
+                    db.session.add(new_team)
+                    db.session.flush()
+                    team_map[team_data['name']] = new_team.id
             
-            # Обновляем время последнего обновления
-            last_update_time = datetime.now()
-            print(f"[{datetime.now()}] Обновление завершено успешно!")
+            db.session.commit()
             
+            # Игроки
+            for player_data in data['players']:
+                existing = Player.query.filter_by(scraped_id=player_data['scraped_id']).first()
+                team_id = team_map.get(player_data['team_name'])
+                
+                if not team_id:
+                    continue
+                
+                if existing:
+                    existing.full_name = player_data['full_name']
+                    existing.team_id = team_id
+                    existing.total_runs = player_data['total_runs']
+                    existing.total_wickets = player_data['total_wickets']
+                else:
+                    new_player = Player(
+                        scraped_id=player_data['scraped_id'],
+                        full_name=player_data['full_name'],
+                        team_id=team_id,
+                        total_runs=player_data['total_runs'],
+                        total_wickets=player_data['total_wickets'],
+                        total_matches=player_data['total_matches']
+                    )
+                    db.session.add(new_player)
+            
+            db.session.commit()
+            
+            # Матчи
+            for match_data in data['matches']:
+                existing = Match.query.filter_by(scraped_match_id=match_data['scraped_match_id']).first()
+                team1_id = team_map.get(match_data['team1_name'])
+                team2_id = team_map.get(match_data['team2_name'])
+                
+                if not team1_id or not team2_id:
+                    continue
+                
+                if existing:
+                    existing.match_date = match_data.get('match_date', datetime.now())
+                    existing.status = match_data.get('status', 'scheduled')
+                    existing.team1_score = match_data.get('team1_score')
+                    existing.team2_score = match_data.get('team2_score')
+                else:
+                    new_match = Match(
+                        scraped_match_id=match_data['scraped_match_id'],
+                        match_date=match_data.get('match_date', datetime.now()),
+                        venue=match_data.get('venue', 'Unknown'),
+                        match_type=match_data.get('match_type', 'ODI'),
+                        tournament=match_data.get('tournament', ''),
+                        status=match_data.get('status', 'scheduled'),
+                        team1_id=team1_id,
+                        team2_id=team2_id,
+                        team1_score=match_data.get('team1_score'),
+                        team2_score=match_data.get('team2_score'),
+                        result=match_data.get('result', '')
+                    )
+                    db.session.add(new_match)
+            
+            db.session.commit()
+            
+            # Автоматическое завершение старых матчей
+            live_matches = Match.query.filter_by(status='live').all()
+            for match in live_matches:
+                if match.match_date and (datetime.utcnow() - match.match_date) > timedelta(hours=8):
+                    match.status = 'completed'
+            
+            db.session.commit()
+            
+            last_update = datetime.now()
+            print(f"✅ Скрапинг завершен: {len(data['matches'])} матчей")
             return True
             
     except Exception as e:
-        print(f"Ошибка при обновлении данных: {str(e)}")
+        print(f"❌ Ошибка: {e}")
+        db.session.rollback()
         return False
+    finally:
+        is_scraping = False
 
-def scheduled_update():
-    """Запланированное обновление данных"""
-    update_cricket_data()
-
-# Конфигурация планировщика
-class SchedulerConfig:
-    SCHEDULER_API_ENABLED = True
-    SCHEDULER_TIMEZONE = "UTC"
-
-app.config.from_object(SchedulerConfig)
-
-@scheduler.task('interval', id='auto_update', hours=6, misfire_grace_time=900)
-def auto_update_job():
-    """Автоматическое обновление каждые 6 часов"""
-    scheduled_update()
-
-@scheduler.task('interval', id='daily_summary', days=1, misfire_grace_time=3600)
-def daily_summary_job():
-    """Ежедневная сводка"""
-    print(f"[{datetime.now()}] Ежедневная проверка данных выполнена")
-
-# API для ручного запуска обновления
-@app.route('/api/v1/admin/update-now', methods=['POST'])
-def manual_update():
-    """Ручной запуск обновления данных"""
-    try:
-        success = update_cricket_data()
-        if success:
-            return jsonify({
-                'status': 'success',
-                'message': 'Данные успешно обновлены',
-                'last_update': last_update_time.strftime('%Y-%m-%d %H:%M:%S') if last_update_time else None
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'Произошла ошибка при обновлении'
-            }), 500
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-@app.route('/api/v1/health', methods=['GET'])
-def health_check():
-    """Проверка здоровья API"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.utcnow().isoformat(),
-        'version': '1.0.0',
-        'last_update': last_update_time.isoformat() if last_update_time else None,
-        'scheduler_running': scheduler.running
-    })
+def start_scraping():
+    """Запуск скрапинга в фоне"""
+    thread = threading.Thread(target=scrape_background)
+    thread.daemon = True
+    thread.start()
+    return True
 
 # ========== API ЭНДПОИНТЫ ==========
 
+@app.route('/api/v1/health', methods=['GET'])
+def health():
+    """Проверка здоровья"""
+    return jsonify({
+        'status': 'ok',
+        'time': datetime.utcnow().isoformat(),
+        'last_update': last_update.isoformat() if last_update else None,
+        'scraping': is_scraping
+    })
+
 @app.route('/api/v1/matches', methods=['GET'])
 def get_matches():
-    """Получение списка матчей"""
-    match_type = request.args.get('type', 'all')
+    """Получить матчи"""
     status = request.args.get('status')
     limit = request.args.get('limit', type=int)
     
     query = Match.query
     
-    if match_type != 'all':
-        query = query.filter_by(match_type=match_type)
     if status:
         query = query.filter_by(status=status)
     
-    if limit:
-        matches = query.order_by(Match.match_date.desc()).limit(limit).all()
-    else:
-        matches = query.order_by(Match.match_date.desc()).all()
+    matches = query.order_by(Match.match_date.desc()).limit(limit or 50).all()
     
     return jsonify({
-        'matches': [match.to_dict() for match in matches],
-        'total': len(matches),
-        'last_update': last_update_time.isoformat() if last_update_time else None
+        'matches': [m.to_dict() for m in matches],
+        'count': len(matches)
     })
 
 @app.route('/api/v1/matches/<int:match_id>', methods=['GET'])
 def get_match(match_id):
-    """Получение информации о конкретном матче"""
+    """Получить матч по ID"""
     match = Match.query.get_or_404(match_id)
     return jsonify(match.to_dict())
 
-@app.route('/api/v1/matches/live', methods=['GET'])
-def get_live_matches():
-    """Получение live матчей"""
-    live_matches = Match.query.filter_by(status='live').order_by(Match.match_date.desc()).all()
-    return jsonify({
-        'matches': [match.to_dict() for match in live_matches],
-        'count': len(live_matches)
-    })
-
 @app.route('/api/v1/teams', methods=['GET'])
 def get_teams():
-    """Получение списка команд"""
+    """Получить команды"""
     teams = Team.query.all()
     return jsonify({
-        'teams': [team.to_dict() for team in teams],
-        'total': len(teams)
+        'teams': [t.to_dict() for t in teams],
+        'count': len(teams)
     })
 
 @app.route('/api/v1/teams/<int:team_id>', methods=['GET'])
 def get_team(team_id):
-    """Получение информации о команде"""
+    """Получить команду по ID"""
     stats = DatabaseManager.get_team_stats(team_id)
     return jsonify(stats)
 
 @app.route('/api/v1/players', methods=['GET'])
 def get_players():
-    """Получение списка игроков"""
-    role = request.args.get('role')
+    """Получить игроков"""
     team_id = request.args.get('team_id', type=int)
     limit = request.args.get('limit', type=int)
     
     query = Player.query
     
-    if role:
-        query = query.filter_by(role=role)
     if team_id:
         query = query.filter_by(team_id=team_id)
     
-    if limit:
-        players = query.order_by(Player.full_name).limit(limit).all()
-    else:
-        players = query.order_by(Player.full_name).all()
+    players = query.order_by(Player.full_name).limit(limit or 50).all()
     
     return jsonify({
-        'players': [player.to_dict() for player in players],
-        'total': len(players)
+        'players': [p.to_dict() for p in players],
+        'count': len(players)
     })
 
 @app.route('/api/v1/players/<int:player_id>', methods=['GET'])
 def get_player(player_id):
-    """Получение информации об игроке"""
+    """Получить игрока по ID"""
     stats = DatabaseManager.get_player_stats(player_id)
     return jsonify(stats)
 
-@app.route('/api/v1/players/top', methods=['GET'])
-def get_top_players():
-    """Получение лучших игроков"""
-    by = request.args.get('by', 'runs')
-    limit = request.args.get('limit', 10, type=int)
+@app.route('/api/v1/admin/update', methods=['POST'])
+def update_data():
+    """Ручной запуск обновления"""
+    if is_scraping:
+        return jsonify({'error': 'Скрапинг уже выполняется'}), 400
     
-    if by == 'runs':
-        players = Player.query.order_by(Player.total_runs.desc()).limit(limit).all()
-    elif by == 'wickets':
-        players = Player.query.order_by(Player.total_wickets.desc()).limit(limit).all()
-    else:
-        players = Player.query.order_by(Player.total_matches.desc()).limit(limit).all()
+    success = start_scraping()
     
     return jsonify({
-        'players': [player.to_dict() for player in players],
-        'sorted_by': by,
-        'limit': limit
+        'success': success,
+        'message': 'Скрапинг запущен' if success else 'Ошибка запуска'
     })
 
-@app.route('/api/v1/stats/summary', methods=['GET'])
-def get_stats_summary():
-    """Получение сводной статистики"""
-    total_teams = Team.query.count()
-    total_players = Player.query.count()
-    total_matches = Match.query.count()
-    live_matches = Match.query.filter_by(status='live').count()
-    
+@app.route('/api/v1/admin/status', methods=['GET'])
+def get_status():
+    """Статус системы"""
     return jsonify({
-        'total_teams': total_teams,
-        'total_players': total_players,
-        'total_matches': total_matches,
-        'live_matches': live_matches,
-        'last_update': datetime.utcnow().isoformat(),
-        'auto_update_enabled': scheduler.running
+        'scraping': is_scraping,
+        'last_update': last_update.isoformat() if last_update else None,
+        'teams_count': Team.query.count(),
+        'players_count': Player.query.count(),
+        'matches_count': Match.query.count()
     })
 
 # ========== ВЕБ-ИНТЕРФЕЙС ==========
@@ -252,164 +256,122 @@ def get_stats_summary():
 @app.route('/')
 def index():
     """Главная страница"""
-    recent_matches = Match.query.order_by(Match.match_date.desc()).limit(5).all()
-    top_batsmen = Player.query.order_by(Player.total_runs.desc()).limit(5).all()
-    top_bowlers = Player.query.order_by(Player.total_wickets.desc()).limit(5).all()
+    matches = Match.query.order_by(Match.match_date.desc()).limit(5).all()
+    batsmen = Player.query.order_by(Player.total_runs.desc()).limit(5).all()
+    bowlers = Player.query.order_by(Player.total_wickets.desc()).limit(5).all()
     
     return render_template('index.html',
-                         recent_matches=[m.to_dict() for m in recent_matches],
-                         top_batsmen=[p.to_dict() for p in top_batsmen],
-                         top_bowlers=[p.to_dict() for p in top_bowlers],
-                         last_update=last_update_time)
+                         matches=[m.to_dict() for m in matches],
+                         batsmen=[p.to_dict() for p in batsmen],
+                         bowlers=[p.to_dict() for p in bowlers],
+                         last_update=last_update)
 
 @app.route('/matches')
 def matches_page():
-    """Страница со списком матчей"""
-    match_type = request.args.get('type', 'all')
+    """Страница матчей"""
     page = request.args.get('page', 1, type=int)
-    
-    query = Match.query
-    
-    if match_type != 'all':
-        query = query.filter_by(match_type=match_type)
-    
-    matches = query.order_by(Match.match_date.desc()).paginate(
-        page=page, per_page=app.config['ITEMS_PER_PAGE'], error_out=False
+    matches = Match.query.order_by(Match.match_date.desc()).paginate(
+        page=page, per_page=20, error_out=False
     )
-    
-    return render_template('matches.html',
-                         matches=matches,
-                         match_type=match_type,
-                         last_update=last_update_time)
+    return render_template('matches.html', matches=matches, last_update=last_update)
 
 @app.route('/players')
 def players_page():
-    """Страница со списком игроков"""
-    role = request.args.get('role', 'all')
-    team_id = request.args.get('team_id', type=int)
+    """Страница игроков"""
     page = request.args.get('page', 1, type=int)
-    
-    query = Player.query
-    
-    if role != 'all':
-        query = query.filter_by(role=role)
-    if team_id:
-        query = query.filter_by(team_id=team_id)
-    
-    players = query.order_by(Player.full_name).paginate(
-        page=page, per_page=app.config['ITEMS_PER_PAGE'], error_out=False
+    players = Player.query.order_by(Player.full_name).paginate(
+        page=page, per_page=20, error_out=False
     )
-    
-    teams = Team.query.all()
-    
-    return render_template('players.html',
-                         players=players,
-                         teams=teams,
-                         role=role,
-                         selected_team_id=team_id,
-                         last_update=last_update_time)
+    return render_template('players.html', players=players, last_update=last_update)
 
 @app.route('/teams')
 def teams_page():
-    """Страница со списком команд"""
+    """Страница команд"""
     teams = Team.query.all()
-    total_players = Player.query.count()
-    
-    return render_template('teams.html',
-                         teams=teams,
-                         total_players=total_players,
-                         last_update=last_update_time)
+    return render_template('teams.html', teams=teams, last_update=last_update)
 
 @app.route('/admin')
 def admin_page():
-    """Админская панель"""
+    """Админ-панель"""
     stats = {
-        'total_teams': Team.query.count(),
-        'total_players': Player.query.count(),
-        'total_matches': Match.query.count(),
-        'live_matches': Match.query.filter_by(status='live').count()
+        'teams': Team.query.count(),
+        'players': Player.query.count(),
+        'matches': Match.query.count(),
+        'live': Match.query.filter_by(status='live').count()
     }
-    
-    return render_template('admin.html',
-                         stats=stats,
-                         last_update=last_update_time,
-                         scheduler_status=scheduler.running)
+    return render_template('admin.html', stats=stats, last_update=last_update, is_scraping=is_scraping)
 
-@app.route('/api-docs')
-def api_docs():
-    """Документация API"""
-    return render_template('api_docs.html',
-                         last_update=last_update_time)
+# ========== ПЛАНИРОВЩИК ==========
 
-# ========== ОБРАБОТЧИКИ ОШИБОК ==========
+@scheduler.task('interval', id='auto_update', hours=6)
+def auto_update():
+    """Автоматическое обновление каждые 6 часов"""
+    print(f"⏰ Автообновление: {datetime.now()}")
+    start_scraping()
 
-@app.errorhandler(404)
-def not_found_error(error):
-    return render_template('404.html'), 404
+@scheduler.task('interval', id='hourly_check', hours=1)
+def hourly_check():
+    """Ежечасная проверка"""
+    try:
+        with app.app_context():
+            live_matches = Match.query.filter_by(status='live').all()
+            for match in live_matches:
+                if match.match_date and (datetime.utcnow() - match.match_date) > timedelta(hours=8):
+                    match.status = 'completed'
+                    db.session.commit()
+                    print(f"📅 Матч {match.id} завершен")
+    except Exception as e:
+        print(f"⚠️ Ошибка проверки: {e}")
 
-@app.errorhandler(500)
-def internal_error(error):
-    db.session.rollback()
-    return render_template('500.html'), 500
+# ========== ИНИЦИАЛИЗАЦИЯ ==========
 
-# ========== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ==========
-
-def init_database():
-    """Инициализация базы данных при запуске"""
+def init_app():
+    """Инициализация приложения"""
     with app.app_context():
-        try:
-            # Создаем все таблицы
-            db.create_all()
-            print("✅ Таблицы базы данных созданы")
-            
-            # Создаем начальные данные если база пустая
-            if not Team.query.first():
-                print("🔄 Создание начальных данных...")
-                DatabaseManager._create_sample_data()
-                print("✅ Начальные данные созданы")
-            
-            # Запускаем первоначальное обновление
-            global last_update_time
-            update_cricket_data()
-            last_update_time = datetime.now()
-            
-        except Exception as e:
-            print(f"⚠️ Ошибка при инициализации базы данных: {e}")
+        # Создаем таблицы
+        db.create_all()
+        print("✅ База данных создана")
+        
+        # Тестовые данные если пусто
+        if not Team.query.first():
+            DatabaseManager._create_sample_data()
+            print("✅ Тестовые данные созданы")
+        
+        # Запускаем первый скрапинг
+        global last_update
+        start_scraping()
+        last_update = datetime.now()
 
-def shutdown_scheduler():
-    """Корректное завершение работы планировщика"""
+def shutdown():
+    """Завершение работы"""
     if scheduler.running:
         scheduler.shutdown()
-        print("Планировщик остановлен")
+        print("🛑 Планировщик остановлен")
 
-# Регистрируем функцию завершения
-atexit.register(shutdown_scheduler)
+atexit.register(shutdown)
 
-# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
+# ========== ЗАПУСК ==========
 
 if __name__ == '__main__':
-    # Инициализируем базу данных
-    init_database()
+    # Инициализация
+    init_app()
     
-    # Запускаем планировщик
+    # Планировщик
     if not scheduler.running:
         scheduler.start()
-        print("✅ Планировщик задач запущен")
-        print(f"📅 Автоматическое обновление настроено на каждые 6 часов")
+        print("✅ Планировщик запущен")
     
     print("=" * 50)
-    print("🏏 Cricket Scores API Application")
+    print("🏏 Cricket Scores API")
     print("=" * 50)
-    print(f"📍 API доступно по адресу: http://localhost:5000{app.config['API_PREFIX']}")
-    print(f"📖 Документация API: http://localhost:5000/api-docs")
-    print(f"⚙️ Админ панель: http://localhost:5000/admin")
-    print(f"🔄 Ручное обновление: POST http://localhost:5000/api/v1/admin/update-now")
+    print(f"📍 http://localhost:5000")
+    print(f"📊 API: http://localhost:5000/api/v1")
+    print(f"🔄 Автообновление: каждые 6 часов")
     print("=" * 50)
     
     app.run(debug=True, host='0.0.0.0', port=5000)
 else:
-    # Для запуска через Gunicorn (на Render)
-    init_database()
+    # Для Gunicorn
+    init_app()
     if not scheduler.running:
         scheduler.start()
-        print("✅ Планировщик задач запущен в режиме production")
