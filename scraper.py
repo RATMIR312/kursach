@@ -29,13 +29,18 @@ class CricketScraper:
             response = self.session.get(url, timeout=self.config.REQUEST_TIMEOUT)
             response.raise_for_status()
             
+            # Проверяем статус ответа
+            if response.status_code != 200:
+                print(f"HTTP Error: {response.status_code}")
+                return self._get_test_live_matches()
+            
             # Используем html5lib парсер
             soup = BeautifulSoup(response.content, 'html5lib')
-
-                    # Добавляем проверку на пустой контент
-        if not soup or len(soup.find_all()) < 10:
-            print("Warning: Page content appears to be empty or invalid")
-            return self._get_test_live_matches()
+            
+            # Добавляем проверку на пустой контент
+            if not soup or len(soup.find_all()) < 10:
+                print("Warning: Page content appears to be empty or invalid")
+                return self._get_test_live_matches()
             
             matches = []
             # Поиск матчей (пример селекторов)
@@ -72,11 +77,6 @@ class CricketScraper:
             
             return self._process_matches(matches)
             
-        except Exception as e:
-            print(f"Error scraping live matches: {e}")
-            # Возвращаем тестовые данные в случае ошибки
-            return self._process_matches(self._get_test_live_matches())
-
         except requests.exceptions.RequestException as e:
             print(f"Network error scraping live matches: {e}")
             return self._process_matches(self._get_test_live_matches())
