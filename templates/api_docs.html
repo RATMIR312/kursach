@@ -8,306 +8,207 @@
     <p>Полное описание REST API для доступа к данным о крикете</p>
 </div>
 
-<div class="docs-container">
-    <div class="docs-sidebar">
-        <div class="docs-menu">
-            <h3>Быстрая навигация</h3>
-            <a href="#introduction" class="docs-link">Введение</a>
-            <a href="#authentication" class="docs-link">Аутентификация</a>
-            <a href="#endpoints" class="docs-link">Эндпоинты</a>
-            <a href="#examples" class="docs-link">Примеры</a>
-            <a href="#errors" class="docs-link">Ошибки</a>
-        </div>
+<div class="api-docs">
+    <div class="info-card">
+        <h3><i class="fas fa-info-circle"></i> Основная информация</h3>
+        <ul>
+            <li><strong>Базовый URL:</strong> <code>/api/v1</code></li>
+            <li><strong>Формат данных:</strong> JSON</li>
+            <li><strong>Кодировка:</strong> UTF-8</li>
+        </ul>
+    </div>
+
+    <div class="endpoints-section">
+        <h2><i class="fas fa-plug"></i> Доступные эндпоинты</h2>
         
-        <div class="quick-start card">
-            <h3><i class="fas fa-rocket"></i> Быстрый старт</h3>
-            <pre><code># Получить список матчей
-GET {{ url_for('get_matches', _external=True) }}
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/health</code>
+            </div>
+            <p>Проверка работоспособности API</p>
+        </div>
 
-# Получить live матчи
-GET {{ url_for('get_live_matches', _external=True) }}
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/matches</code>
+            </div>
+            <p>Получение списка матчей</p>
+            <div class="params">
+                <strong>Параметры:</strong>
+                <ul>
+                    <li><code>type</code> - тип матча (Test, ODI, T20)</li>
+                    <li><code>status</code> - статус (live, completed, scheduled)</li>
+                </ul>
+            </div>
+        </div>
 
-# Получить список команд
-GET {{ url_for('get_teams', _external=True) }}</code></pre>
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/matches/&lt;id&gt;</code>
+            </div>
+            <p>Получение детальной информации о матче</p>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/teams</code>
+            </div>
+            <p>Получение списка команд</p>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/teams/&lt;id&gt;</code>
+            </div>
+            <p>Получение статистики команды</p>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/players</code>
+            </div>
+            <p>Получение списка игроков</p>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/players/&lt;id&gt;</code>
+            </div>
+            <p>Получение статистики игрока</p>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <code>/api/v1/players/top</code>
+            </div>
+            <p>Получение лучших игроков</p>
+            <div class="params">
+                <strong>Параметры:</strong>
+                <ul>
+                    <li><code>by</code> - критерий (runs, wickets)</li>
+                    <li><code>limit</code> - количество (по умолчанию: 10)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="endpoint-card">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <code>/api/v1/admin/scrape</code>
+            </div>
+            <p>Запуск скрапинга данных (требуется аутентификация)</p>
         </div>
     </div>
-    
-    <div class="docs-content">
-        <section id="introduction" class="docs-section">
-            <h2>Введение</h2>
-            <p>Cricket Scores API предоставляет RESTful интерфейс для доступа к актуальным данным о крикете, полученным через веб-скрапинг.</p>
-            
-            <div class="info-box">
-                <p><strong>Базовый URL API:</strong> <code>{{ url_for('health_check', _external=True) | replace('/health', '') }}</code></p>
-                <p><strong>Формат данных:</strong> JSON</p>
-                <p><strong>Кодировка:</strong> UTF-8</p>
-            </div>
-        </section>
+
+    <div class="examples-section">
+        <h2><i class="fas fa-code"></i> Примеры использования</h2>
         
-        <section id="authentication" class="docs-section">
-            <h2>Аутентификация</h2>
-            <p>Большинство эндпоинтов API являются публичными и не требуют аутентификации. Однако некоторые административные функции требуют базовой HTTP аутентификации.</p>
-            
-            <div class="code-example">
-                <h3>Пример запроса с аутентификацией:</h3>
-                <pre><code>curl -X POST \
-  {{ url_for('trigger_scrape', _external=True) }} \
-  -H "Authorization: Basic YWRtaW46Y3JpY2tldDEyMw=="</code></pre>
-            </div>
-        </section>
-        
-        <section id="endpoints" class="docs-section">
-            <h2>Эндпоинты API</h2>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-heartbeat"></i> Здоровье системы</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/health</code>
-                    </div>
-                    <p>Проверка статуса API и версии системы.</p>
-                    
-                    <div class="endpoint-example">
-                        <h4>Пример ответа:</h4>
-                        <pre><code>{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "version": "1.0.0"
-}</code></pre>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-baseball-ball"></i> Матчи</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/matches</code>
-                    </div>
-                    <p>Получение списка матчей. Поддерживает фильтрацию по типу и статусу.</p>
-                    
-                    <div class="parameters">
-                        <h4>Параметры запроса:</h4>
-                        <ul>
-                            <li><code>type</code> - тип матча (Test, ODI, T20)</li>
-                            <li><code>status</code> - статус (live, completed, scheduled)</li>
-                            <li><code>team_id</code> - ID команды для фильтрации</li>
-                            <li><code>page</code> - номер страницы (пагинация)</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="endpoint-example">
-                        <h4>Пример запроса:</h4>
-                        <pre><code>GET {{ url_for('get_matches', _external=True) }}?type=ODI&status=completed</code></pre>
-                    </div>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/matches/live</code>
-                    </div>
-                    <p>Получение списка live (текущих) матчей.</p>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/matches/&lt;id&gt;</code>
-                    </div>
-                    <p>Получение детальной информации о конкретном матче, включая иннинги и выступления игроков.</p>
-                </div>
-            </div>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-users"></i> Команды</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/teams</code>
-                    </div>
-                    <p>Получение списка команд.</p>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/teams/&lt;id&gt;</code>
-                    </div>
-                    <p>Получение статистики команды, включая историю матчей и лучших игроков.</p>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/teams/&lt;id&gt;/players</code>
-                    </div>
-                    <p>Получение списка игроков команды.</p>
-                </div>
-            </div>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-user-friends"></i> Игроки</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/players</code>
-                    </div>
-                    <p>Получение списка игроков с поддержкой фильтрации.</p>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/players/&lt;id&gt;</code>
-                    </div>
-                    <p>Получение детальной статистики игрока.</p>
-                </div>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/players/top</code>
-                    </div>
-                    <p>Получение лучших игроков по статистике.</p>
-                    <div class="parameters">
-                        <h4>Параметры запроса:</h4>
-                        <ul>
-                            <li><code>by</code> - критерий сортировки (runs, wickets)</li>
-                            <li><code>limit</code> - количество игроков (по умолчанию: 10)</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-chart-bar"></i> Статистика</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method get">GET</span>
-                        <code class="endpoint-path">/api/v1/stats/summary</code>
-                    </div>
-                    <p>Получение сводной статистики системы.</p>
-                </div>
-            </div>
-            
-            <div class="endpoint-group">
-                <h3><i class="fas fa-cog"></i> Администрирование</h3>
-                
-                <div class="endpoint-card">
-                    <div class="endpoint-header">
-                        <span class="method post">POST</span>
-                        <code class="endpoint-path">/api/v1/admin/scrape</code>
-                    </div>
-                    <p>Запуск процесса скрапинга данных. Требуется аутентификация.</p>
-                </div>
-            </div>
-        </section>
-        
-        <section id="examples" class="docs-section">
-            <h2>Примеры использования</h2>
-            
-            <div class="example-card">
-                <h3>Пример 1: Получение live матчей</h3>
-                <pre><code>import requests
+        <div class="example-card">
+            <h4>Пример 1: Получение всех матчей</h4>
+            <pre><code>fetch('/api/v1/matches')
+  .then(response => response.json())
+  .then(data => console.log(data));</code></pre>
+        </div>
 
-# Получение live матчей
-response = requests.get('{{ url_for("get_live_matches", _external=True) }}')
-matches = response.json()
+        <div class="example-card">
+            <h4>Пример 2: Получение статистики команды</h4>
+            <pre><code>fetch('/api/v1/teams/1')
+  .then(response => response.json())
+  .then(data => console.log(data));</code></pre>
+        </div>
 
-print(f"Найдено live матчей: {matches['count']}")
-for match in matches['matches']:
-    print(f"{match['team1']} vs {match['team2']}")
-    print(f"Счет: {match['team1_score']} - {match['team2_score']}")</code></pre>
-            </div>
-            
-            <div class="example-card">
-                <h3>Пример 2: Получение статистики команды</h3>
-                <pre><code>import requests
-
-# Получение статистики команды (например, команда с ID=1)
-response = requests.get('{{ url_for("get_team", team_id=1, _external=True) }}')
-team_stats = response.json()
-
-print(f"Команда: {team_stats['team']['name']}")
-print(f"Матчей сыграно: {team_stats['matches_played']}")
-print(f"Побед: {team_stats['matches_won']}")
-print(f"Процент побед: {team_stats['win_percentage']}%")
-
-print("\nЛучшие бэтсмены:")
-for batsman in team_stats['top_batsmen'][:3]:
-    print(f"- {batsman['full_name']}: {batsman['total_runs']} ранов")</code></pre>
-            </div>
-            
-            <div class="example-card">
-                <h3>Пример 3: Использование с cURL</h3>
-                <pre><code># Получить список матчей типа ODI
-curl "{{ url_for('get_matches', _external=True) }}?type=ODI"
-
-# Получить лучших бэтсменов
-curl "{{ url_for('get_top_players', _external=True) }}?by=runs&limit=5"
-
-# Получить информацию о матче
-curl "{{ url_for('get_match', match_id=1, _external=True) }}"</code></pre>
-            </div>
-        </section>
-        
-        <section id="errors" class="docs-section">
-            <h2>Коды ошибок</h2>
-            
-            <table class="errors-table">
-                <thead>
-                    <tr>
-                        <th>Код</th>
-                        <th>Описание</th>
-                        <th>Возможные причины</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><code>400</code></td>
-                        <td>Неверный запрос</td>
-                        <td>Некорректные параметры запроса</td>
-                    </tr>
-                    <tr>
-                        <td><code>401</code></td>
-                        <td>Не авторизован</td>
-                        <td>Отсутствует или неверная аутентификация</td>
-                    </tr>
-                    <tr>
-                        <td><code>404</code></td>
-                        <td>Не найдено</td>
-                        <td>Запрашиваемый ресурс не существует</td>
-                    </tr>
-                    <tr>
-                        <td><code>429</code></td>
-                        <td>Слишком много запросов</td>
-                        <td>Превышен лимит запросов к API</td>
-                    </tr>
-                    <tr>
-                        <td><code>500</code></td>
-                        <td>Внутренняя ошибка сервера</td>
-                        <td>Проблема на стороне сервера</td>
-                    </tr>
-                </tbody>
-            </table>
-            
-            <div class="code-example">
-                <h3>Пример ответа с ошибкой:</h3>
-                <pre><code>{
-  "error": "Resource not found",
-  "code": 404,
-  "message": "The requested match does not exist"
-}</code></pre>
-            </div>
-        </section>
+        <div class="example-card">
+            <h4>Пример 3: Получение лучших бэтсменов</h4>
+            <pre><code>fetch('/api/v1/players/top?by=runs&limit=5')
+  .then(response => response.json())
+  .then(data => console.log(data));</code></pre>
+        </div>
     </div>
 </div>
+
+<style>
+.api-docs {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.endpoints-section {
+    margin: 3rem 0;
+}
+
+.endpoint-card {
+    background: #f8f9fa;
+    border-left: 4px solid #3498db;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 4px;
+}
+
+.endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.method {
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.method.get {
+    background: #27ae60;
+    color: white;
+}
+
+.method.post {
+    background: #3498db;
+    color: white;
+}
+
+.params {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #e9ecef;
+    border-radius: 4px;
+}
+
+.params ul {
+    margin: 0.5rem 0 0 1rem;
+}
+
+.examples-section {
+    margin: 3rem 0;
+}
+
+.example-card {
+    background: #2c3e50;
+    color: white;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 4px;
+}
+
+.example-card pre {
+    margin: 1rem 0 0 0;
+    background: #1a252f;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.example-card code {
+    color: #ecf0f1;
+}
+</style>
 {% endblock %}
