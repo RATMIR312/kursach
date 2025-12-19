@@ -13,7 +13,7 @@ from scraper import ScrapingManager
 # Инициализация приложения
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)  # Включение CORS для API
+CORS(app)
 
 # Инициализация базы данных
 db.init_app(app)
