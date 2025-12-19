@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 from config import Config
 from models import db, Team, Player, Match, Innings, PlayerPerformance
-from database import DatabaseManager, get_db_connection
+from database import DatabaseManager
 from scraper import ScrapingManager
 
 # Инициализация приложения
@@ -55,27 +55,33 @@ def health_check():
 @app.route(f'{Config.API_PREFIX}/matches', methods=['GET'])
 def get_matches():
     """Получение списка матчей"""
-    match_type = request.args.get('type', 'all')
-    page = request.args.get('page', 1, type=int)
-    
-    query = Match.query
-    
-    if match_type != 'all':
-        query = query.filter_by(match_type=match_type)
-    
-    matches = query.order_by(Match.match_date.desc()).paginate(
-        page=page, per_page=Config.ITEMS_PER_PAGE, error_out=False
-    )
-    
-    return jsonify({
-        'matches': [match.to_dict() for match in matches.items],
-        'total_pages': matches.pages,
-        'current_page': matches.page,
-        'total_matches': matches.total
-    })
+    try:
+        match_type = request.args.get('type', 'all')
+        status = request.args.get('status')
+        page = request.args.get('page', 1, type=int)
+        
+        query = Match.query
+        
+        if match_type != 'all':
+            query = query.filter_by(match_type=match_type)
+        if status:
+            query = query.filter_by(status=status)
+        
+        matches = query.order_by(Match.match_date.desc()).all()
+        
+        return jsonify({
+            'matches': [match.to_dict() for match in matches],
+            'total': len(matches),
+            'page': page
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/matches/<int:match_id>', methods=['GET'])
-def get_match(match_id):
+def get_match_by_id(match_id):
     """Получение информации о конкретном матче"""
     try:
         match = Match.query.get(match_id)
@@ -84,8 +90,8 @@ def get_match(match_id):
                 'error': 'Match not found',
                 'match_id': match_id
             }), 404
-    
-    # Получаем информацию об иннингах
+        
+        # Получаем информацию об иннингах
         innings = Innings.query.filter_by(match_id=match_id).all()
         innings_data = []
         
@@ -116,118 +122,169 @@ def get_match(match_id):
 @app.route(f'{Config.API_PREFIX}/matches/live', methods=['GET'])
 def get_live_matches():
     """Получение live матчей"""
-    live_matches = Match.query.filter_by(status='live').all()
-    return jsonify({
-        'matches': [match.to_dict() for match in live_matches],
-        'count': len(live_matches)
-    })
+    try:
+        live_matches = Match.query.filter_by(status='live').all()
+        return jsonify({
+            'matches': [match.to_dict() for match in live_matches],
+            'count': len(live_matches)
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 # --- Команды ---
 
 @app.route('/teams')
 def teams_page():
     """Страница со списком команд"""
-    teams = Team.query.all()
-    
-    # Считаем общую статистику
-    total_players = Player.query.count()
-    
-    # Считаем уникальные страны
-    countries = set()
-    for team in teams:
-        if team.country:
-            countries.add(team.country)
-    countries_count = len(countries)
-    
-    return render_template('teams.html', 
-                         teams=teams,
-                         total_players=total_players,
-                         countries_count=countries_count)
+    try:
+        teams = Team.query.all()
+        
+        # Считаем общую статистику
+        total_players = Player.query.count()
+        
+        # Считаем уникальные страны
+        countries = set()
+        for team in teams:
+            if team.country:
+                countries.add(team.country)
+        countries_count = len(countries)
+        
+        return render_template('teams.html', 
+                             teams=teams,
+                             total_players=total_players,
+                             countries_count=countries_count)
+    except Exception as e:
+        return render_template('error.html', error=str(e)), 500
 
 @app.route(f'{Config.API_PREFIX}/teams', methods=['GET'])
-def get_teams():
-    """Получение списка команд"""
-    teams = Team.query.all()
-    return jsonify({
-        'teams': [team.to_dict() for team in teams],
-        'total': len(teams)
-    })
+def get_all_teams():
+    """Получение списка всех команд"""
+    try:
+        teams = Team.query.all()
+        return jsonify({
+            'teams': [team.to_dict() for team in teams],
+            'total': len(teams)
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/teams/<int:team_id>', methods=['GET'])
-def get_team(team_id):
+def get_team_by_id(team_id):
     """Получение информации о команде"""
-    stats = DatabaseManager.get_team_stats(team_id)
-    return jsonify(stats)
+    try:
+        stats = DatabaseManager.get_team_stats(team_id)
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/teams/<int:team_id>/players', methods=['GET'])
-def get_team_players(team_id):
+def get_team_players_by_id(team_id):
     """Получение игроков команды"""
-    players = Player.query.filter_by(team_id=team_id).all()
-    return jsonify({
-        'players': [player.to_dict() for player in players],
-        'total': len(players)
-    })
+    try:
+        players = Player.query.filter_by(team_id=team_id).all()
+        return jsonify({
+            'players': [player.to_dict() for player in players],
+            'total': len(players)
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 # --- Игроки ---
 
 @app.route(f'{Config.API_PREFIX}/players', methods=['GET'])
-def get_players():
+def get_all_players():
     """Получение списка игроков"""
-    page = request.args.get('page', 1, type=int)
-    role = request.args.get('role')
-    team_id = request.args.get('team_id', type=int)
-    
-    query = Player.query
-    
-    if role:
-        query = query.filter_by(role=role)
-    if team_id:
-        query = query.filter_by(team_id=team_id)
-    
-    players = query.order_by(Player.full_name).all()
-    
-    return jsonify({
-        'players': [player.to_dict() for player in players],
-        'total': len(players)
-    })
+    try:
+        page = request.args.get('page', 1, type=int)
+        role = request.args.get('role')
+        team_id = request.args.get('team_id', type=int)
+        
+        query = Player.query
+        
+        if role:
+            query = query.filter_by(role=role)
+        if team_id:
+            query = query.filter_by(team_id=team_id)
+        
+        players = query.order_by(Player.full_name).all()
+        
+        return jsonify({
+            'players': [player.to_dict() for player in players],
+            'total': len(players)
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/players/<int:player_id>', methods=['GET'])
-def get_player(player_id):
+def get_player_by_id(player_id):
     """Получение информации об игроке"""
-    stats = DatabaseManager.get_player_stats(player_id)
-    return jsonify(stats)
+    try:
+        stats = DatabaseManager.get_player_stats(player_id)
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 @app.route(f'{Config.API_PREFIX}/players/top', methods=['GET'])
 def get_top_players():
     """Получение лучших игроков"""
-    by = request.args.get('by', 'runs')
-    limit = request.args.get('limit', 10, type=int)
-    
-    players = DatabaseManager.get_top_players(by, limit)
-    
-    return jsonify({
-        'players': players,
-        'sorted_by': by,
-        'limit': limit
-    })
+    try:
+        by = request.args.get('by', 'runs')
+        limit = request.args.get('limit', 10, type=int)
+        
+        players = DatabaseManager.get_top_players(by, limit)
+        
+        return jsonify({
+            'players': players,
+            'sorted_by': by,
+            'limit': limit
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 # --- Статистика ---
 
 @app.route(f'{Config.API_PREFIX}/stats/summary', methods=['GET'])
 def get_stats_summary():
     """Получение сводной статистики"""
-    total_teams = Team.query.count()
-    total_players = Player.query.count()
-    total_matches = Match.query.count()
-    live_matches = Match.query.filter_by(status='live').count()
-    
-    return jsonify({
-        'total_teams': total_teams,
-        'total_players': total_players,
-        'total_matches': total_matches,
-        'live_matches': live_matches,
-        'last_updated': datetime.utcnow().isoformat()
-    })
+    try:
+        total_teams = Team.query.count()
+        total_players = Player.query.count()
+        total_matches = Match.query.count()
+        live_matches = Match.query.filter_by(status='live').count()
+        
+        return jsonify({
+            'total_teams': total_teams,
+            'total_players': total_players,
+            'total_matches': total_matches,
+            'live_matches': live_matches,
+            'last_updated': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e)
+        }), 500
 
 # --- Админские эндпоинты ---
 
@@ -235,14 +292,14 @@ def get_stats_summary():
 @admin_required
 def trigger_scrape():
     """Запуск скрапинга данных"""
-    if not scraping_manager.should_scrape():
-        return jsonify({
-            'status': 'skipped',
-            'message': 'Scrape was performed recently',
-            'last_scrape': scraping_manager.last_scrape_time.isoformat() if scraping_manager.last_scrape_time else None
-        }), 200
-    
     try:
+        if not scraping_manager.should_scrape():
+            return jsonify({
+                'status': 'skipped',
+                'message': 'Scrape was performed recently',
+                'last_scrape': scraping_manager.last_scrape_time.isoformat() if scraping_manager.last_scrape_time else None
+            }), 200
+        
         scraped_data = scraping_manager.run_full_scrape()
         
         if scraped_data:
@@ -280,59 +337,68 @@ def clear_cache():
 @app.route('/')
 def index():
     """Главная страница"""
-    recent_matches = DatabaseManager.get_recent_matches(5)
-    top_batsmen = DatabaseManager.get_top_players('runs', 5)
-    top_bowlers = DatabaseManager.get_top_players('wickets', 5)
-    
-    return render_template('index.html',
-                         recent_matches=recent_matches,
-                         top_batsmen=top_batsmen,
-                         top_bowlers=top_bowlers)
+    try:
+        recent_matches = DatabaseManager.get_recent_matches(5)
+        top_batsmen = DatabaseManager.get_top_players('runs', 5)
+        top_bowlers = DatabaseManager.get_top_players('wickets', 5)
+        
+        return render_template('index.html',
+                             recent_matches=recent_matches,
+                             top_batsmen=top_batsmen,
+                             top_bowlers=top_bowlers)
+    except Exception as e:
+        return render_template('error.html', error=str(e)), 500
 
 @app.route('/matches')
 def matches_page():
     """Страница со списком матчей"""
-    match_type = request.args.get('type', 'all')
-    page = request.args.get('page', 1, type=int)
-    
-    query = Match.query
-    
-    if match_type != 'all':
-        query = query.filter_by(match_type=match_type)
-    
-    matches = query.order_by(Match.match_date.desc()).paginate(
-        page=page, per_page=Config.ITEMS_PER_PAGE, error_out=False
-    )
-    
-    return render_template('matches.html',
-                         matches=matches,
-                         match_type=match_type)
+    try:
+        match_type = request.args.get('type', 'all')
+        page = request.args.get('page', 1, type=int)
+        
+        query = Match.query
+        
+        if match_type != 'all':
+            query = query.filter_by(match_type=match_type)
+        
+        matches = query.order_by(Match.match_date.desc()).paginate(
+            page=page, per_page=Config.ITEMS_PER_PAGE, error_out=False
+        )
+        
+        return render_template('matches.html',
+                             matches=matches,
+                             match_type=match_type)
+    except Exception as e:
+        return render_template('error.html', error=str(e)), 500
 
 @app.route('/players')
 def players_page():
     """Страница со списком игроков"""
-    role = request.args.get('role', 'all')
-    team_id = request.args.get('team_id', type=int)
-    page = request.args.get('page', 1, type=int)
-    
-    query = Player.query
-    
-    if role != 'all':
-        query = query.filter_by(role=role)
-    if team_id:
-        query = query.filter_by(team_id=team_id)
-    
-    players = query.order_by(Player.full_name).paginate(
-        page=page, per_page=Config.ITEMS_PER_PAGE, error_out=False
-    )
-    
-    teams = Team.query.all()
-    
-    return render_template('players.html',
-                         players=players,
-                         teams=teams,
-                         role=role,
-                         selected_team_id=team_id)
+    try:
+        role = request.args.get('role', 'all')
+        team_id = request.args.get('team_id', type=int)
+        page = request.args.get('page', 1, type=int)
+        
+        query = Player.query
+        
+        if role != 'all':
+            query = query.filter_by(role=role)
+        if team_id:
+            query = query.filter_by(team_id=team_id)
+        
+        players = query.order_by(Player.full_name).paginate(
+            page=page, per_page=Config.ITEMS_PER_PAGE, error_out=False
+        )
+        
+        teams = Team.query.all()
+        
+        return render_template('players.html',
+                             players=players,
+                             teams=teams,
+                             role=role,
+                             selected_team_id=team_id)
+    except Exception as e:
+        return render_template('error.html', error=str(e)), 500
 
 @app.route('/admin')
 def admin_page():
@@ -372,7 +438,11 @@ def not_found_error(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Обработчик ошибки 500"""
-    db.session.rollback()
+    try:
+        db.session.rollback()
+    except:
+        pass
+    
     if request.path.startswith('/api/'):
         return jsonify({'error': 'Internal server error'}), 500
     return render_template('500.html'), 500
