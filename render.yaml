@@ -2,7 +2,9 @@ services:
   - type: web
     name: cricket-scores-api
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install -r requirements.txt
+      python -c "import nltk; nltk.download('punkt')"
     startCommand: gunicorn app:app
     envVars:
       - key: SECRET_KEY
