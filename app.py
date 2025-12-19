@@ -113,14 +113,25 @@ def get_live_matches():
 
 # --- Команды ---
 
-@app.route(f'{Config.API_PREFIX}/teams', methods=['GET'])
-def get_teams():
-    """Получение списка команд"""
+@app.route('/teams')
+def teams_page():
+    """Страница со списком команд"""
     teams = Team.query.all()
-    return jsonify({
-        'teams': [team.to_dict() for team in teams],
-        'total': len(teams)
-    })
+    
+    # Считаем общую статистику
+    total_players = Player.query.count()
+    
+    # Считаем уникальные страны
+    countries = set()
+    for team in teams:
+        if team.country:
+            countries.add(team.country)
+    countries_count = len(countries)
+    
+    return render_template('teams.html', 
+                         teams=teams,
+                         total_players=total_players,
+                         countries_count=countries_count)
 
 @app.route(f'{Config.API_PREFIX}/teams/<int:team_id>', methods=['GET'])
 def get_team(team_id):
