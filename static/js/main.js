@@ -5,6 +5,81 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Cricket Score System loaded');
 });
 
+/**
+ * Улучшенная функция для скрапинга с обработкой ошибок
+ */
+async function scrapeMatches() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    // Показываем загрузку
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/api/scrape/matches');
+        
+        // Проверяем, что ответ - JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error(`Сервер вернул не JSON, а ${contentType}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            // Если статус не 200-299, но это JSON
+            throw new Error(result.message || `Ошибка сервера: ${response.status}`);
+        }
+        
+        if (result.status === 'success') {
+            alert(`✅ ${result.message}\nДобавлено матчей: ${result.matches_added}\nВсего в базе: ${result.total_matches}`);
+            
+            // Обновляем страницу через 2 секунды
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            
+        } else {
+            alert(`⚠️ ${result.message || 'Неизвестная ошибка'}`);
+        }
+        
+    } catch (error) {
+        console.error('Ошибка скрапинга:', error);
+        alert(`❌ Ошибка при скрапинге:\n${error.message}\n\nПроверьте консоль браузера (F12) и логи на Render.`);
+    } finally {
+        // Восстанавливаем кнопку
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+/**
+ * Тестовая функция для проверки API
+ */
+async function testScrapeAPI() {
+    try {
+        console.log('Тестирование API скрапинга...');
+        const response = await fetch('/api/scrape/matches');
+        console.log('Ответ сервера:', response);
+        
+        const text = await response.text();
+        console.log('Текст ответа:', text.substring(0, 200) + '...');
+        
+        try {
+            const json = JSON.parse(text);
+            console.log('Парсинг JSON успешен:', json);
+            return json;
+        } catch (e) {
+            console.error('Не удалось распарсить JSON:', e);
+            console.error('Полный ответ:', text);
+            return null;
+        }
+    } catch (error) {
+        console.error('Ошибка при тестировании API:', error);
+        return null;
+    }
+}
 // Функция для отображения уведомлений
 function showAlert(message, type = 'info') {
     const alertDiv = document.createElement('div');
