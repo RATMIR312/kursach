@@ -88,7 +88,13 @@ class DatabaseManager:
     @staticmethod
     def get_team_stats(team_id: int) -> Dict[str, Any]:
         """Получение статистики команды"""
-        team = Team.query.get_or_404(team_id)
+        try:
+            team = Team.query.get(team_id)
+            if not team:
+                return {
+                    'error': 'Team not found',
+                    'team_id': team_id
+                }
         
         # Статистика матчей
         matches_played = Match.query.filter(
@@ -100,8 +106,12 @@ class DatabaseManager:
         
         # Статистика игроков
         players = Player.query.filter_by(team_id=team_id).all()
-        total_runs = sum(p.total_runs for p in players)
-        total_wickets = sum(p.total_wickets for p in players)
+        total_runs = sum(p.total_runs or 0 for p in players)
+        total_wickets = sum(p.total_wickets or 0 for p in players)
+        
+        except Exception as e:
+            print(f"Error in get_team_stats: {e}")
+            return {'error': str(e)}
         
         # Лучшие игроки
         top_batsmen = sorted(players, key=lambda x: x.total_runs, reverse=True)[:3]
