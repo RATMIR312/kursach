@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from models import db, Match, Player, PlayerPoints
-from scraper import fetch_live_matches  # ТОЛЬКО fetch_live_matches
+from scraper import fetch_live_matches
 from score_calculator import calculate_batting_points, calculate_bowling_points
 from datetime import datetime
 
@@ -43,6 +43,8 @@ def init_sample_data():
             {"name": "Jasprit Bumrah", "role": "bowler", "team": "India", "match_id": 1, "wickets": 2, "runs_conceded": 28},
             {"name": "David Warner", "role": "batsman", "team": "Australia", "match_id": 1, "runs": 55, "balls_faced": 38},
             {"name": "Joe Root", "role": "batsman", "team": "England", "match_id": 2, "runs": 85, "balls_faced": 120},
+            {"name": "Pat Cummins", "role": "bowler", "team": "Australia", "match_id": 1, "wickets": 3, "runs_conceded": 35},
+            {"name": "Ben Stokes", "role": "all-rounder", "team": "England", "match_id": 2, "runs": 65, "wickets": 1, "balls_faced": 80},
         ]
         
         for data in players_data:
@@ -121,6 +123,16 @@ def get_matches_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/matches/<int:match_id>', methods=['GET'])
+def get_match_api(match_id):
+    try:
+        match = Match.query.get(match_id)
+        if not match:
+            return jsonify({'error': 'Match not found'}), 404
+        return jsonify(match.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/players', methods=['GET'])
 def get_players_api():
     try:
@@ -134,6 +146,30 @@ def get_players_api():
             query = query.filter_by(team=team)
         
         players = query.all()
+        return jsonify([player.to_dict() for player in players])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/players/<int:player_id>', methods=['GET'])
+def get_player_api(player_id):
+    try:
+        player = Player.query.get(player_id)
+        if not player:
+            return jsonify({'error': 'Player not found'}), 404
+        return jsonify(player.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/players/top/<role>', methods=['GET'])
+def get_top_players(role):
+    try:
+        if role == 'batsman':
+            players = Player.query.filter_by(role='batsman').order_by(Player.runs.desc()).limit(5).all()
+        elif role == 'bowler':
+            players = Player.query.filter_by(role='bowler').order_by(Player.wickets.desc()).limit(5).all()
+        else:
+            return jsonify({'error': 'Invalid role. Use batsman or bowler'}), 400
+        
         return jsonify([player.to_dict() for player in players])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -189,6 +225,15 @@ def calculate_points_api():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/points/history', methods=['GET'])
+def get_points_history():
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        history = PlayerPoints.query.order_by(PlayerPoints.calculation_date.desc()).limit(limit).all()
+        return jsonify([record.to_dict() for record in history])
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/scrape/matches')
