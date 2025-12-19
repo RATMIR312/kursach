@@ -7,9 +7,10 @@ from typing import Dict, List, Optional, Tuple
 import json
 from models import Team, Player, Match
 from database import db
+import html5lib  # Используем html5lib вместо lxml
 
 class CricketScraper:
-    """Класс для скрапинга данных о крикете"""
+    """Класс для скрапинга данных о крикете с использованием html5lib"""
     
     def __init__(self, config):
         self.config = config
@@ -22,10 +23,144 @@ class CricketScraper:
         """Скрапинг live матчей"""
         print("Scraping live matches...")
         
-        # В реальном проекте здесь был бы парсинг реального сайта
-        # Для демонстрации возвращаем тестовые данные
+        # Используем html5lib как парсер
+        try:
+            url = "https://www.cricbuzz.com/cricket-match/live-scores"
+            response = self.session.get(url, timeout=self.config.REQUEST_TIMEOUT)
+            response.raise_for_status()
+            
+            # Используем html5lib парсер
+            soup = BeautifulSoup(response.content, 'html5lib')
+            
+            matches = []
+            # Поиск матчей (пример селекторов)
+            match_cards = soup.find_all('div', class_=re.compile(r'match-card|cb-mtch-lst'))
+            
+            for card in match_cards[:5]:  # Ограничим 5 матчами для теста
+                try:
+                    # Пример парсинга структуры
+                    teams = card.find_all('span', class_=re.compile(r'team-name|cb-ovr-flo'))
+                    scores = card.find_all('span', class_=re.compile(r'score|cb-font-20'))
+                    
+                    if len(teams) >= 2:
+                        match_data = {
+                            'scraped_match_id': f"live_{int(time.time())}_{len(matches)}",
+                            'match_date': datetime.utcnow(),
+                            'venue': self._extract_venue(card),
+                            'match_type': self._extract_match_type(card),
+                            'tournament': self._extract_tournament(card),
+                            'status': 'live',
+                            'team1': teams[0].get_text(strip=True),
+                            'team2': teams[1].get_text(strip=True),
+                            'team1_score': scores[0].get_text(strip=True) if len(scores) > 0 else '',
+                            'team2_score': scores[1].get_text(strip=True) if len(scores) > 1 else '',
+                            'result': card.find('div', class_=re.compile(r'status|cb-text-live')).get_text(strip=True) if card.find('div', class_=re.compile(r'status|cb-text-live')) else 'In Progress'
+                        }
+                        matches.append(match_data)
+                except Exception as e:
+                    print(f"Error parsing match card: {e}")
+                    continue
+            
+            if not matches:
+                # Возвращаем тестовые данные если не удалось распарсить
+                matches = self._get_test_live_matches()
+            
+            return self._process_matches(matches)
+            
+        except Exception as e:
+            print(f"Error scraping live matches: {e}")
+            # Возвращаем тестовые данные в случае ошибки
+            return self._process_matches(self._get_test_live_matches())
+    
+    def scrape_recent_matches(self, days: int = 7) -> List[Dict]:
+        """Скрапинг завершенных матчей"""
+        print(f"Scraping recent matches (last {days} days)...")
         
-        test_matches = [
+        try:
+            url = "https://www.cricbuzz.com/cricket-match/live-scores/recent-matches"
+            response = self.session.get(url, timeout=self.config.REQUEST_TIMEOUT)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html5lib')
+            matches = []
+            
+            # Поиск завершенных матчей
+            match_items = soup.find_all('div', class_=re.compile(r'cb-mtch-lst|cb-col-100'))
+            
+            for item in match_items[:10]:  # Ограничим 10 матчами
+                try:
+                    # Проверяем, что матч завершен
+                    status_elem = item.find('span', class_=re.compile(r'status|cb-text-complete'))
+                    if status_elem and 'complete' in status_elem.get_text(strip=True).lower():
+                        teams = item.find_all('span', class_=re.compile(r'team-name|hvr-underline'))
+                        scores = item.find_all('span', class_=re.compile(r'score'))
+                        
+                        if len(teams) >= 2:
+                            match_data = {
+                                'scraped_match_id': f"recent_{int(time.time())}_{len(matches)}",
+                                'match_date': datetime.utcnow() - timedelta(days=len(matches) % days),
+                                'venue': self._extract_venue(item),
+                                'match_type': self._extract_match_type(item),
+                                'tournament': self._extract_tournament(item),
+                                'status': 'completed',
+                                'team1': teams[0].get_text(strip=True),
+                                'team2': teams[1].get_text(strip=True),
+                                'team1_score': scores[0].get_text(strip=True) if len(scores) > 0 else '',
+                                'team2_score': scores[1].get_text(strip=True) if len(scores) > 1 else '',
+                                'result': status_elem.get_text(strip=True),
+                                'winner': self._extract_winner(item, teams)
+                            }
+                            matches.append(match_data)
+                except Exception as e:
+                    print(f"Error parsing recent match: {e}")
+                    continue
+            
+            if not matches:
+                matches = self._get_test_recent_matches(days)
+            
+            return self._process_matches(matches)
+            
+        except Exception as e:
+            print(f"Error scraping recent matches: {e}")
+            return self._process_matches(self._get_test_recent_matches(days))
+    
+    def _extract_venue(self, element) -> str:
+        """Извлечение места проведения"""
+        venue_elem = element.find('span', class_=re.compile(r'venue|ground'))
+        return venue_elem.get_text(strip=True) if venue_elem else "Unknown Venue"
+    
+    def _extract_match_type(self, element) -> str:
+        """Извлечение типа матча"""
+        type_elem = element.find('span', class_=re.compile(r'match-type|format'))
+        if type_elem:
+            text = type_elem.get_text(strip=True).upper()
+            if 'TEST' in text:
+                return 'Test'
+            elif 'ODI' in text:
+                return 'ODI'
+            elif 'T20' in text:
+                return 'T20'
+        return 'ODI'  # По умолчанию
+    
+    def _extract_tournament(self, element) -> str:
+        """Извлечение названия турнира"""
+        tournament_elem = element.find('a', class_=re.compile(r'tournament|series'))
+        return tournament_elem.get_text(strip=True) if tournament_elem else "International"
+    
+    def _extract_winner(self, element, teams) -> Optional[str]:
+        """Извлечение победителя"""
+        result_elem = element.find('span', class_=re.compile(r'result|winner'))
+        if result_elem:
+            result_text = result_elem.get_text(strip=True)
+            for team in teams:
+                team_name = team.get_text(strip=True)
+                if team_name in result_text:
+                    return team_name
+        return None
+    
+    def _get_test_live_matches(self) -> List[Dict]:
+        """Тестовые данные для live матчей"""
+        return [
             {
                 'scraped_match_id': 'test_live_1',
                 'match_date': datetime.utcnow(),
@@ -53,15 +188,10 @@ class CricketScraper:
                 'result': 'India need 3 runs to win'
             }
         ]
-        
-        return self._process_matches(test_matches)
     
-    def scrape_recent_matches(self, days: int = 7) -> List[Dict]:
-        """Скрапинг завершенных матчей за последние N дней"""
-        print(f"Scraping recent matches (last {days} days)...")
-        
-        # Тестовые данные для демонстрации
-        recent_matches = [
+    def _get_test_recent_matches(self, days: int) -> List[Dict]:
+        """Тестовые данные для завершенных матчей"""
+        return [
             {
                 'scraped_match_id': 'test_recent_1',
                 'match_date': datetime.utcnow() - timedelta(days=1),
@@ -91,15 +221,13 @@ class CricketScraper:
                 'winner': 'Pakistan'
             }
         ]
-        
-        return self._process_matches(recent_matches)
     
     def scrape_player_stats(self, player_ids: Optional[List[str]] = None) -> List[Dict]:
         """Скрапинг статистики игроков"""
         print("Scraping player statistics...")
         
         # Тестовые данные для демонстрации
-        test_players = [
+        return [
             {
                 'scraped_id': 'player_001',
                 'full_name': 'Virat Kohli',
@@ -129,39 +257,6 @@ class CricketScraper:
                 'best_bowling': '6/23'
             }
         ]
-        
-        return test_players
-    
-    def scrape_match_details(self, match_id: str) -> Optional[Dict]:
-        """Скрапинг детальной информации о матче"""
-        print(f"Scraping details for match {match_id}...")
-        
-        # Тестовые данные для демонстрации
-        return {
-            'scraped_match_id': match_id,
-            'innings': [
-                {
-                    'innings_number': 1,
-                    'batting_team': 'India',
-                    'bowling_team': 'Australia',
-                    'total_runs': 328,
-                    'wickets': 7,
-                    'overs': 50.0,
-                    'player_performances': [
-                        {
-                            'player': 'Virat Kohli',
-                            'runs_scored': 120,
-                            'balls_faced': 110,
-                            'fours': 12,
-                            'sixes': 2,
-                            'strike_rate': 109.09,
-                            'is_out': True,
-                            'dismissal_type': 'caught'
-                        }
-                    ]
-                }
-            ]
-        }
     
     def _process_matches(self, raw_matches: List[Dict]) -> List[Dict]:
         """Обработка скрапированных данных матчей"""
@@ -199,6 +294,9 @@ class CricketScraper:
         """Парсинг строки со счетом (например, '287/3')"""
         if not score_str:
             return 0, 0
+        
+        # Удаляем оверы если есть
+        score_str = re.sub(r'\([^)]+\)', '', score_str).strip()
         
         match = re.match(r'(\d+)/(\d+)', score_str)
         if match:
