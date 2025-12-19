@@ -123,8 +123,8 @@ def scrape_real_data(url: str) -> str:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         
-        # Парсим HTML
-        soup = BeautifulSoup(response.content, 'lxml')
+        # Парсим HTML с использованием встроенного html.parser вместо lxml
+        soup = BeautifulSoup(response.content, 'html.parser')
         
         # Здесь будет ваша логика извлечения данных
         # Например, поиск по классам или ID
