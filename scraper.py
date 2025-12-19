@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import time
 import re
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import json
 from models import Team, Player, Match
 from database import db
