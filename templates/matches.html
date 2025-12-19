@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Матчи - Cricket Scores API{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-baseball-ball"></i> Матчи по крикету</h1>
+    <p>Актуальная информация о матчах, полученная через веб-скрапинг</p>
+</div>
+
+<div class="filters card">
+    <h3>Фильтры</h3>
+    <div class="filter-options">
+        <a href="{{ url_for('matches_page', type='all') }}" 
+           class="filter-btn {% if match_type == 'all' %}active{% endif %}">
+            Все
+        </a>
+        <a href="{{ url_for('matches_page', type='Test') }}" 
+           class="filter-btn {% if match_type == 'Test' %}active{% endif %}">
+            Test
+        </a>
+        <a href="{{ url_for('matches_page', type='ODI') }}" 
+           class="filter-btn {% if match_type == 'ODI' %}active{% endif %}">
+            ODI
+        </a>
+        <a href="{{ url_for('matches_page', type='T20') }}" 
+           class="filter-btn {% if match_type == 'T20' %}active{% endif %}">
+            T20
+        </a>
+    </div>
+</div>
+
+<div class="matches-container">
+    {% if matches.items %}
+        {% for match in matches.items %}
+        <div class="match-card">
+            <div class="match-header">
+                <div class="match-tournament">
+                    <i class="fas fa-trophy"></i> {{ match.tournament or 'Другое' }}
+                </div>
+                <div class="match-type {{ match.match_type }}">
+                    {{ match.match_type }}
+                </div>
+            </div>
+            
+            <div class="match-body">
+                <div class="teams-container">
+                    <div class="team">
+                        <div class="team-name">{{ match.team1.name if match.team1 else 'TBD' }}</div>
+                        <div class="team-score">{{ match.team1_score or '---' }}</div>
+                    </div>
+                    
+                    <div class="vs-circle">VS</div>
+                    
+                    <div class="team">
+                        <div class="team-name">{{ match.team2.name if match.team2 else 'TBD' }}</div>
+                        <div class="team-score">{{ match.team2_score or '---' }}</div>
+                    </div>
+                </div>
+                
+                <div class="match-details">
+                    <div class="detail">
+                        <i class="fas fa-calendar"></i>
+                        <span>{{ match.match_date.strftime('%d.%m.%Y %H:%M') if match.match_date else 'Дата не указана' }}</span>
+                    </div>
+                    <div class="detail">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>{{ match.venue or 'Место не указано' }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="match-footer">
+                <div class="match-status">
+                    <span class="status-badge status-{{ match.status }}">
+                        {% if match.status == 'live' %}
+                            <i class="fas fa-circle live-dot"></i> LIVE
+                        {% elif match.status == 'completed' %}
+                            <i class="fas fa-check-circle"></i> Завершен
+                        {% elif match.status == 'scheduled' %}
+                            <i class="fas fa-clock"></i> Запланирован
+                        {% else %}
+                            {{ match.status }}
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="match-result">
+                    {% if match.result %}
+                        <span class="result-text">{{ match.result }}</span>
+                    {% endif %}
+                    
+                    {% if match.winner %}
+                        <span class="winner">
+                            <i class="fas fa-trophy"></i> {{ match.winner.name }}
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <a href="{{ url_for('get_match', match_id=match.id) }}" class="btn btn-small">
+                    <i class="fas fa-info-circle"></i> Детали
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-baseball-ball fa-3x"></i>
+            <h3>Матчи не найдены</h3>
+            <p>Попробуйте изменить фильтры или дождитесь обновления данных</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if matches.pages > 1 %}
+<div class="pagination">
+    {% if matches.has_prev %}
+        <a href="{{ url_for('matches_page', page=matches.prev_num, type=match_type) }}" 
+           class="page-link">
+            <i class="fas fa-chevron-left"></i> Назад
+        </a>
+    {% endif %}
+    
+    <span class="page-info">
+        Страница {{ matches.page }} из {{ matches.pages }}
+    </span>
+    
+    {% if matches.has_next %}
+        <a href="{{ url_for('matches_page', page=matches.next_num, type=match_type) }}" 
+           class="page-link">
+            Вперед <i class="fas fa-chevron-right"></i>
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="info-card">
+    <h3><i class="fas fa-info-circle"></i> Информация</h3>
+    <p>Данные обновляются автоматически каждый час с использованием веб-скрапинга.</p>
+    <p>Последнее обновление: {{ "сегодня" if last_update else "недавно" }}</p>
+</div>
+{% endblock %}

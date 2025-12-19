@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Игроки - Cricket Scores API{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-users"></i> Игроки крикета</h1>
+    <p>Статистика игроков, обновляемая через веб-скрапинг</p>
+</div>
+
+<div class="filters-container">
+    <div class="filters-card card">
+        <h3>Фильтры игроков</h3>
+        
+        <form method="GET" class="filter-form">
+            <div class="form-group">
+                <label for="role"><i class="fas fa-user-tag"></i> Роль</label>
+                <select name="role" id="role" class="form-select">
+                    <option value="all" {% if role == 'all' %}selected{% endif %}>Все роли</option>
+                    <option value="batsman" {% if role == 'batsman' %}selected{% endif %}>Бэтсмен</option>
+                    <option value="bowler" {% if role == 'bowler' %}selected{% endif %}>Боулер</option>
+                    <option value="all-rounder" {% if role == 'all-rounder' %}selected{% endif %}>Всесторонний</option>
+                    <option value="wicket-keeper" {% if role == 'wicket-keeper' %}selected{% endif %}>Вратарь</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="team"><i class="fas fa-users"></i> Команда</label>
+                <select name="team_id" id="team" class="form-select">
+                    <option value="">Все команды</option>
+                    {% for team in teams %}
+                        <option value="{{ team.id }}" 
+                            {% if selected_team_id == team.id %}selected{% endif %}>
+                            {{ team.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-filter"></i> Применить фильтры
+            </button>
+            <a href="{{ url_for('players_page') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Сбросить
+            </a>
+        </form>
+    </div>
+</div>
+
+<div class="players-stats">
+    <div class="stats-summary">
+        <div class="stat-box">
+            <h4>Всего игроков</h4>
+            <p class="stat-number">{{ players.total }}</p>
+        </div>
+        <div class="stat-box">
+            <h4>Бэтсменов</h4>
+            <p class="stat-number">{{ players.items|selectattr('role', 'equalto', 'batsman')|list|length }}</p>
+        </div>
+        <div class="stat-box">
+            <h4>Боулеров</h4>
+            <p class="stat-number">{{ players.items|selectattr('role', 'equalto', 'bowler')|list|length }}</p>
+        </div>
+    </div>
+</div>
+
+{% if players.items %}
+<table class="players-table">
+    <thead>
+        <tr>
+            <th>Игрок</th>
+            <th>Команда</th>
+            <th>Роль</th>
+            <th>Раны</th>
+            <th>Викеты</th>
+            <th>Матчи</th>
+            <th>Стиль</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for player in players.items %}
+        <tr>
+            <td class="player-name">
+                <div class="player-info">
+                    <div class="player-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="player-details">
+                        <strong>{{ player.full_name }}</strong>
+                        {% if player.date_of_birth %}
+                            <small>{{ player.date_of_birth.strftime('%d.%m.%Y') if player.date_of_birth else '' }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </td>
+            <td>
+                {% if player.team %}
+                    <span class="team-badge">{{ player.team.name }}</span>
+                {% else %}
+                    <span class="team-badge unknown">Не указана</span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="role-badge role-{{ player.role }}">
+                    {% if player.role == 'batsman' %}
+                        <i class="fas fa-baseball-ball"></i>
+                    {% elif player.role == 'bowler' %}
+                        <i class="fas fa-bullseye"></i>
+                    {% elif player.role == 'all-rounder' %}
+                        <i class="fas fa-star"></i>
+                    {% elif player.role == 'wicket-keeper' %}
+                        <i class="fas fa-baseball-ball"></i>
+                    {% endif %}
+                    {{ player.role|replace('-', ' ')|title }}
+                </span>
+            </td>
+            <td class="stat-cell">
+                {% if player.total_runs > 0 %}
+                    <span class="stat-highlight">{{ player.total_runs }}</span>
+                    {% if player.highest_score %}
+                        <small class="stat-sub">HS: {{ player.highest_score }}</small>
+                    {% endif %}
+                {% else %}
+                    <span class="stat-muted">—</span>
+                {% endif %}
+            </td>
+            <td class="stat-cell">
+                {% if player.total_wickets > 0 %}
+                    <span class="stat-highlight">{{ player.total_wickets }}</span>
+                    {% if player.best_bowling %}
+                        <small class="stat-sub">BB: {{ player.best_bowling }}</small>
+                    {% endif %}
+                {% else %}
+                    <span class="stat-muted">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {{ player.total_matches or 0 }}
+            </td>
+            <td>
+                <div class="playing-style">
+                    {% if player.batting_style %}
+                        <div class="style-item">
+                            <i class="fas fa-baseball-ball"></i>
+                            {{ player.batting_style }}
+                        </div>
+                    {% endif %}
+                    {% if player.bowling_style %}
+                        <div class="style-item">
+                            <i class="fas fa-bullseye"></i>
+                            {{ player.bowling_style }}
+                        </div>
+                    {% endif %}
+                </div>
+            </td>
+            <td>
+                <a href="{{ url_for('get_player', player_id=player.id) }}" 
+                   class="btn btn-small">
+                    <i class="fas fa-chart-line"></i> Статистика
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-user-slash fa-3x"></i>
+    <h3>Игроки не найдены</h3>
+    <p>Попробуйте изменить фильтры поиска</p>
+</div>
+{% endif %}
+
+{% if players.pages > 1 %}
+<div class="pagination">
+    {% if players.has_prev %}
+        <a href="{{ url_for('players_page', page=players.prev_num, role=role, team_id=selected_team_id) }}" 
+           class="page-link">
+            <i class="fas fa-chevron-left"></i> Назад
+        </a>
+    {% endif %}
+    
+    <span class="page-info">
+        Страница {{ players.page }} из {{ players.pages }}
+    </span>
+    
+    {% if players.has_next %}
+        <a href="{{ url_for('players_page', page=players.next_num, role=role, team_id=selected_team_id) }}" 
+           class="page-link">
+            Вперед <i class="fas fa-chevron-right"></i>
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

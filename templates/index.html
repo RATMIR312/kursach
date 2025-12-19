@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Cricket Scores API{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1><i class="fas fa-trophy"></i> Cricket Scores API</h1>
+    <p class="subtitle">API для получения и подсчёта очков в крикете с использованием веб-скрапинга</p>
+</div>
+
+<div class="stats-cards">
+    <div class="stats-row">
+        <div class="stat-card">
+            <h3><i class="fas fa-users"></i> Команд</h3>
+            <p class="stat-number">{{ teams_count or '4' }}</p>
+        </div>
+        <div class="stat-card">
+            <h3><i class="fas fa-user-friends"></i> Игроков</h3>
+            <p class="stat-number">{{ players_count or '50+' }}</p>
+        </div>
+        <div class="stat-card">
+            <h3><i class="fas fa-baseball-ball"></i> Матчей</h3>
+            <p class="stat-number">{{ matches_count or '100+' }}</p>
+        </div>
+        <div class="stat-card">
+            <h3><i class="fas fa-sync-alt"></i> Обновлений</h3>
+            <p class="stat-number">Каждый час</p>
+        </div>
+    </div>
+</div>
+
+<div class="content-grid">
+    <div class="content-column">
+        <div class="card">
+            <h2><i class="fas fa-fire"></i> Последние матчи</h2>
+            {% if recent_matches %}
+                <div class="matches-list">
+                    {% for match in recent_matches %}
+                    <div class="match-item">
+                        <div class="match-teams">
+                            <span class="team">{{ match.team1 }}</span>
+                            <span class="vs">vs</span>
+                            <span class="team">{{ match.team2 }}</span>
+                        </div>
+                        <div class="match-score">
+                            {{ match.team1_score or 'TBD' }} - {{ match.team2_score or 'TBD' }}
+                        </div>
+                        <div class="match-info">
+                            <span class="match-type">{{ match.match_type }}</span>
+                            <span class="match-date">{{ match.match_date[:10] if match.match_date else 'N/A' }}</span>
+                        </div>
+                        <div class="match-result">
+                            <span class="status {{ match.status }}">{{ match.status }}</span>
+                            {% if match.result %}
+                                <span class="result">{{ match.result }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p>Нет данных о матчах</p>
+            {% endif %}
+            <a href="{{ url_for('matches_page') }}" class="btn btn-secondary">
+                Все матчи <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="content-column">
+        <div class="card">
+            <h2><i class="fas fa-crown"></i> Лучшие бэтсмены</h2>
+            {% if top_batsmen %}
+                <table class="players-table">
+                    <thead>
+                        <tr>
+                            <th>Игрок</th>
+                            <th>Команда</th>
+                            <th>Раны</th>
+                            <th>Матчи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in top_batsmen %}
+                        <tr>
+                            <td>{{ player.full_name }}</td>
+                            <td>{{ player.team or 'N/A' }}</td>
+                            <td class="stat-highlight">{{ player.total_runs }}</td>
+                            <td>{{ player.total_matches }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Нет данных об игроках</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2><i class="fas fa-bullseye"></i> Лучшие боулеры</h2>
+            {% if top_bowlers %}
+                <table class="players-table">
+                    <thead>
+                        <tr>
+                            <th>Игрок</th>
+                            <th>Команда</th>
+                            <th>Викеты</th>
+                            <th>Матчи</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in top_bowlers %}
+                        <tr>
+                            <td>{{ player.full_name }}</td>
+                            <td>{{ player.team or 'N/A' }}</td>
+                            <td class="stat-highlight">{{ player.total_wickets }}</td>
+                            <td>{{ player.total_matches }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Нет данных об игроках</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="api-info card">
+    <h2><i class="fas fa-code"></i> Использование API</h2>
+    <p>Наше API предоставляет доступ к актуальной статистике крикета через RESTful интерфейс:</p>
+    
+    <div class="code-example">
+        <h3>Пример запроса:</h3>
+        <pre><code>GET /api/v1/matches/live
+GET /api/v1/players/top?by=runs&limit=10
+GET /api/v1/teams/1/stats</code></pre>
+    </div>
+    
+    <div class="code-example">
+        <h3>Пример ответа:</h3>
+        <pre><code>{
+  "matches": [
+    {
+      "id": 1,
+      "team1": "India",
+      "team2": "Australia",
+      "status": "completed",
+      "result": "India won by 37 runs"
+    }
+  ]
+}</code></pre>
+    </div>
+    
+    <a href="{{ url_for('api_docs') }}" class="btn btn-primary">
+        <i class="fas fa-book"></i> Полная документация API
+    </a>
+</div>
+{% endblock %}

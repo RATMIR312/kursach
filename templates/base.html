@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Cricket Scores API{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('index') }}" class="logo">
+                <i class="fas fa-baseball-ball"></i>
+                Cricket Scores
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('index') }}">Главная</a>
+                <a href="{{ url_for('matches_page') }}">Матчи</a>
+                <a href="{{ url_for('players_page') }}">Игроки</a>
+                <a href="{{ url_for('teams_page') }}">Команды</a>
+                <a href="{{ url_for('api_docs') }}">API Docs</a>
+                <a href="{{ url_for('admin_page') }}" class="admin-link">
+                    <i class="fas fa-cog"></i> Админ
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Cricket Scores API &copy; 2024</p>
+            <p>Использует веб-скрапинг для получения актуальных данных о крикете</p>
+            <p>API доступно по адресу: <code>/api/v1</code></p>
+        </div>
+    </footer>
+</body>
+</html>
