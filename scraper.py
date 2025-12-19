@@ -25,11 +25,11 @@ class CricbuzzScraper:
         return self._create_test_matches()
     
     def _parse_real_matches(self, html):
-        """Простой парсинг HTML"""
+        """Простой парсинг HTML без lxml"""
         matches = []
         teams = ['India', 'Australia', 'England', 'Pakistan', 'New Zealand', 'South Africa']
         
-        # Ищем упоминания команд
+        # Простой поиск по тексту без сложного парсинга
         for team in teams:
             if team in html:
                 # Создаем матч для каждой найденной команды
